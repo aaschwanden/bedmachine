@@ -1,10 +1,127 @@
 #!/usr/bin/env python
 
+import numpy as np
 from dolfin import *
 
+try:
+    from netCDF4 import Dataset as CDF
+except:
+    from netCDF3 import Dataset as CDF
 
-## TODO: Re-write to read in netCDF instead of Matlab mat file
+try:
+    import PyPISMTools.PyPISMTools as ppt
+except:
+    import PyPISMTools as ppt
 
+
+def get_dims(nc):
+    '''
+    Gets dimensions from netcdf instance
+
+    Parameters:
+    -----------
+    nc: netCDF instance
+
+    Returns:
+    --------
+    xdim, ydim, zdim, tdim: dimensions
+    '''
+        
+    ## a list of possible x-dimensions names
+    xdims = ['x','x1']
+    ## a list of possible y-dimensions names
+    ydims = ['y','y1']
+    ## a list of possible z-dimensions names
+    zdims= ['z', 'z1']
+    ## a list of possible time-dimensions names
+    tdims= ['t', 'time']
+
+    ## assign x dimension
+    for dim in xdims:
+        if dim in list(nc.dimensions.keys()):
+            xdim = dim
+    ## assign y dimension
+    for dim in ydims:
+        if dim in list(nc.dimensions.keys()):
+            ydim = dim
+    ## assign y dimension
+    for dim in zdims:
+        if dim in list(nc.dimensions.keys()):
+            zdim = dim
+        else:
+            zdim = 'z'
+    ## assign y dimension
+    for dim in tdims:
+        if dim in list(nc.dimensions.keys()):
+            tdim = dim
+        else:
+            tdim = 'time'
+    return xdim, ydim, zdim, tdim
+
+
+def permute(variable, output_order=('time', 'z', 'zb', 'y', 'x')):
+    '''
+    Permute dimensions of a NetCDF variable to match the output
+    storage order.
+
+    Parameters
+    ----------
+    variable : a netcdf variable
+               e.g. thk = nc.variables['thk']
+    output_order: dimension tuple (optional)
+                  default ordering is ('time', 'z', 'zb', 'y', 'x')
+
+    Returns
+    -------
+    var_perm : array_like
+    '''
+
+    input_dimensions = variable.dimensions
+
+    # filter out irrelevant dimensions
+    dimensions = filter(lambda(x): x in input_dimensions,
+                        output_order)
+
+    # create the mapping
+    mapping = map(lambda(x): dimensions.index(x),
+                  input_dimensions)
+
+    if mapping:
+        return np.transpose(variable[:], mapping)
+    else:
+        return variable[:]  # so that it does not break processing "mapping"
+
+# Note:
+# We don't need to know the dimension order in the netCDF file
+# because we get the dimension via get_dims, and then perumute
+# to the desired order via permute.
+
+output_order = ("x", "y")
+
+data_file="jak_basin.nc"
+nc_data = CDF(data_file, 'r')
+xdim, ydim, zdim, tdim = get_dims(nc_vel)
+rho = np.squeeze(permute(nc_data.variables["rho"], output_order=output_order))
+H0 = np.squeeze(permute(nc_data.variables["thk"], output_order=output_order))
+nc_data.close()
+
+vel_file="jak_surf_vels.nc"
+nc_vel = CDF(vel_file, 'r')
+xdim, ydim, zdim, tdim = get_dims(nc_vel)
+uvel = np.squeeze(permute(nc_vel.variables["us"], output_order=output_order))
+vvel = np.squeeze(permute(nc_vel.variables["vs"], output_order=output_order))
+nc_vel.close()
+
+output_order = ("time", "x", "y")
+
+bc_file="jak_input_v1.1.nc"
+nc_bc = CDF(bc_file, 'r')
+xdim, ydim, zdim, tdim = get_dims(nc_bc)
+Hin = np.squeeze(permute(nc_bc.variables["thk"], output_order=output_order))
+smb = np.squeeze(permute(nc_bc.variables["smb"], output_order=output_order))
+nc_bc.close()
+
+          
 ## from src.utilities import DataInput, DataOutput
 ## set_log_level(PROGRESS)
 
