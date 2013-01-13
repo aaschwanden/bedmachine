@@ -150,7 +150,7 @@ script_command = ' '.join([time.ctime(), ':', __file__.split('/')[-1],
                            ' '.join([str(l) for l in args])])
 nc.history = script_command
 
-print "writing to %s ...\n" % output
+print "writing to %s ...\n" % out_filename
 print "run nc2cdo.py to add lat/lon variables" 
 nc.close()
 

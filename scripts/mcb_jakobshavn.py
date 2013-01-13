@@ -1,17 +1,19 @@
 #!/usr/bin/env python
 
 import numpy as np
-from dolfin import *
+from scipy.io import netcdf_file as CDF
+import dolfin as dolf
 
-try:
-    from netCDF4 import Dataset as CDF
-except:
-    from netCDF3 import Dataset as CDF
+def generate_expression_from_gridded_data(x, y, var):
+    from scipy.interpolate import RectBivariateSpline
+    interpolant = RectBivariateSpline(x, y, var)
+    class newExpression(dolf.Expression):
+        def __init_(self):
+          pass
+        def eval(self,values,x):
+            values[0] = interpolant(x[0], x[1])
 
-try:
-    import PyPISMTools.PyPISMTools as ppt
-except:
-    import PyPISMTools as ppt
+    return newExpression
 
 
 def get_dims(nc):
@@ -96,13 +98,23 @@ def permute(variable, output_order=('time', 'z', 'zb', 'y', 'x')):
 # because we get the dimension via get_dims, and then perumute
 # to the desired order via permute.
 
+# minimum ice thickness
+thk_min = 10
 output_order = ("x", "y")
 
 data_file="jak_basin.nc"
 nc_data = CDF(data_file, 'r')
-xdim, ydim, zdim, tdim = get_dims(nc_vel)
+xdim, ydim, zdim, tdim = get_dims(nc_data)
+x = nc_data.variables[xdim][:]
+y = nc_data.variables[ydim][:]
 rho = np.squeeze(permute(nc_data.variables["rho"], output_order=output_order))
 H0 = np.squeeze(permute(nc_data.variables["thk"], output_order=output_order))
+M = len(x)
+xmin = x[0]
+xmax = x[-1]
+N = len(y)
+ymin = y[0]
+ymax = y[-1]
 nc_data.close()
 
 vel_file="jak_surf_vels.nc"
@@ -113,40 +125,46 @@ vvel = np.squeeze(permute(nc_vel.variables["vs"], output_order=output_order))
 nc_vel.close()
 
 output_order = ("time", "x", "y")
-
 bc_file="jak_input_v1.1.nc"
 nc_bc = CDF(bc_file, 'r')
 xdim, ydim, zdim, tdim = get_dims(nc_bc)
-Hin = np.squeeze(permute(nc_bc.variables["thk"], output_order=output_order))
+Hobs = np.squeeze(permute(nc_bc.variables["thk"], output_order=output_order)).copy()
+Hobs[Hobs<thk_min] = thk_min
+# No, we don't really want the upper surface fromm the SeaRISE data set.
+# But it will do for testing puropses.
+S = np.squeeze(permute(nc_bc.variables["usrf"], output_order=output_order))
 smb = np.squeeze(permute(nc_bc.variables["smb"], output_order=output_order))
 nc_bc.close()
 
-          
-## from src.utilities import DataInput, DataOutput
-## set_log_level(PROGRESS)
+dolf.set_log_level(dolf.PROGRESS)
 
-## # Import data
-## dd = DataInput(1,"../data/Helheim/",\
-##                 Mesh("../meshes/Helheim_mesh_500m.xml"),\
-##                  "Helheim_SMB.mat","Helheim_Thickness_IDW.mat")
-## H0  = dd.read("Helheim_Thickness_IDW.mat",flip=True)
-## Hb  = dd.read("Helheim_Thickness_Bamber.mat",flip=True)
-## S   = dd.read("Helheim_Surface_BPRC.mat",flip=True)
-## u_o = dd.read("Helheim_vx.mat",flip=True)
-## v_o = dd.read("Helheim_vy.mat",flip=True)
-## adot= dd.read("Helheim_SMB.mat",flip=True)
-## rho_d = dd.read("Helheim_rho.mat",flip=True,dg=True,bool_data=True)
+scale_factor = 1
+MM = int(np.ceil(M * scale_factor))
+NN = int(np.ceil(N * scale_factor))
+x_scaled = np.linspace(xmin, xmax, MM)
+y_scaled = np.linspace(ymin, ymax, NN)
+mesh = dolf.RectangleMesh(np.float(xmin), np.float(ymin),
+                        np.float(xmax), np.float(ymax),
+                        MM,
+                        NN
+                        )
 
-# Prepare data for analysis
-Hb.vector()[Hb.vector()<10.] = 10. # Lower limit on thickness
+dolf.parameters["form_compiler"]["optimize"] = True
+func_space =  dolf.FunctionSpace(mesh,"CG", 1)
+func_space_dg =  dolf.FunctionSpace(mesh,"DG", 1)
+
+Hin = dolf.project(generate_expression_from_gridded_data(x, y, Hobs), func_space)
+adot = dolf.project(generate_expression_from_gridded_data(x, y, smb), func_space)
+u_o = dolf.project(generate_expression_from_gridded_data(x, y, uvel), func_space)
+v_o = dolf.project(generate_expression_from_gridded_data(x, y, vvel), func_space)
 
 # Velocity norm
-U = as_vector([u_o,v_o])  # unsmoothed
-Unorm = project(sqrt(dot(U,U)) + 1e-10)
+U = dolf.as_vector([u_o,v_o])  # unsmoothed
+Unorm = dolf.project(sqrt(dot(U,U)) + 1e-10)
 
 # Steepest descents velocities (if needed)
-u_s = project(-S.dx(0) * Unorm)
-v_s = project(-S.dx(1) * Unorm)
+u_s = dolf.project(-S.dx(0) * Unorm)
+v_s = dolf.project(-S.dx(1) * Unorm)
 
 #u_threshold = 500000. # Norms of velocity greater than this are modeled 
 
@@ -163,14 +181,14 @@ utol = 5.0
 def inside(x,on_boundary):
   return (Unorm(x[0],x[1]) < utol) or on_boundary 
    
-dbc = DirichletBC(dd.func_space,Hb,inside)
+dbc = DirichletBC(func_space,Hin,inside)
 
 # Solution and Trial function
-H = Function(dd.func_space)
-dH = TrialFunction(dd.func_space)
+H = Function(func_space)
+dH = TrialFunction(func_space)
 
 # Test Function
-phi = TestFunction(dd.func_space)
+phi = TestFunction(func_space)
 
 # Misfit penalty.  Penalized differences between the calculated and observed thickness.
 
@@ -186,14 +204,8 @@ I = (div(U*H) - adot)**2*dx \
     + gamma*rho_d*0.5*(H-H0)**2*dx \
     + alpha*(H.dx(0)**2 + H.dx(1)**2)*dx
 
-delta_I = derivative(I,H,phi)
+delta_I = dolf.derivative(I,H,phi)
 
-J = derivative(delta_I,H,dH)
+J = dolf.derivative(delta_I,H,dH)
 
-solve(delta_I==0,H,dbc,J=J)
-
-# File ouput
-do = DataOutput('../results/Helheim/')
-data_out = {'mcb_bed':project(S-H),'bamber_bed':project(S-Hb),'flux_div':project(div(U*H)),'U':Unorm,'density':rho_d,\
-        'u_o':u_o,'v_o':v_o,'adot':adot,'S':S,'H0':H0,'rho_d':rho_d,'thick':H,'delta_H':project((H-H0)*rho_d)}
-do.write_dictionary_of_files(data_out)
+dolf.solve(delta_I==0,H,dbc,J=J)
