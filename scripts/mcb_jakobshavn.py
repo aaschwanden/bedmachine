@@ -106,6 +106,9 @@ def permute(variable, output_order=('time', 'z', 'zb', 'y', 'x')):
 # because we get the dimension via get_dims, and then perumute
 # to the desired order via permute.
 
+parameters['allow_extrapolation'] = True
+
+
 # minimum ice thickness
 thk_min = 10
 output_order = ("x", "y")
@@ -227,6 +230,5 @@ J = derivative(delta_I, H, dH)
 
 params = NonlinearVariationalSolver.default_parameters()
 params['newton_solver']['maximum_iterations'] = 20
-params['allow_extrapolation'] = True
 
 solve(delta_I==0, H, dbc, J=J, solver_parameters=params)
