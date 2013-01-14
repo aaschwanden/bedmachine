@@ -12,7 +12,7 @@ def generate_expression_from_gridded_data(x, y, var, method='bil'):
     elif (method=="nearest"):
       X,Y = np.meshgrid(x,y)
       coords = np.vstack((X.flatten(),Y.flatten())).T
-      interpolant = NearestNDInterpolator(coords, var)
+      interpolant = NearestNDInterpolator(coords, var.flatten())
     else:
       print("method not recongnized: %s" % method)
     class newExpression(Expression):
