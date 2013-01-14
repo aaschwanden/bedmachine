@@ -50,15 +50,24 @@ python scripts/preprocess.py -g $GS --bounds $xmin $xmax $ymin $ymax -n $NN ${fi
 # conservative remapping via CDO.
 nc2cdo.py ${filename}.nc
 
+WARPOPTIONS=" -overwrite -multi -r bilinear -te $xmin $ymin $xmax $ymax -tr $GS $GS -t_srs EPSG:$epsg_code_out"
+
 # CReSIS data set
 CRESIS=Jakobshavn_2006_2012_Composite
 CRESISNC=cresis_thk.nc
 wget -nc --no-check-certificate https://data.cresis.ku.edu/data/grids/$CRESIS.zip
 unzip -o $CRESIS.zip
-WARPOPTIONS=" -overwrite -multi -r bilinear -te $xmin $ymin $xmax $ymax -tr $GS $GS -t_srs EPSG:$epsg_code_out"
 gdalwarp $WARPOPTIONS -of netCDF $CRESIS/grids/jakobshavn_2006_2012_composite_thickness.txt $CRESISNC
 
-# get file; see page http://websrv.cs.umt.edu/isis/index.php/Present_Day_Greenland
+# GIMP DEM
+GIMP=gimpdem_90m
+wget -np ftp://ftp-bprc.mps.ohio-state.edu/downloads/gdg/gimpdem/$GIMP.tif.zip
+unzip -o $GIMP.tif.zip
+gdalwarp $WARPOPTIONS -of netCDF $GIMP.tif $GIMP.nc
+ncrename -v Band1,usurf $GIMP.nc
+# TODO combine with SeaRISE file
+
+# get SeaRISE file; see page http://websrv.cs.umt.edu/isis/index.php/Present_Day_Greenland
 DATAVERSION=1.1
 DATAURL=http://websrv.cs.umt.edu/isis/images/a/a5/
 DATANAME=Greenland_5km_v$DATAVERSION.nc
@@ -67,7 +76,6 @@ echo "Fetching SeaRISE master file ... "
 wget -nc ${DATAURL}${DATANAME}
 echo "  ... done."
 echo
-
 nc2cdo.py $DATANAME
 
 # Regrid SeaRISE onto local Jakobshavn grid
