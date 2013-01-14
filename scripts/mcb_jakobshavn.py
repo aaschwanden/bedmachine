@@ -145,7 +145,7 @@ Hobs = np.squeeze(permute(nc_bc.variables["thk"], output_order=output_order)).co
 Hobs[Hobs<thk_min] = thk_min
 # No, we don't really want the upper surface fromm the SeaRISE data set.
 # But it will do for testing puropses.
-S = np.squeeze(permute(nc_bc.variables["usrf"], output_order=output_order))
+S = np.squeeze(permute(nc_bc.variables["usurf"], output_order=output_order))
 smb = np.squeeze(permute(nc_bc.variables["smb"], output_order=output_order))
 nc_bc.close()
 
