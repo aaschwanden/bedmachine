@@ -195,6 +195,8 @@ v_s = project(-S.dx(1) * Unorm)
 # Ignore slow regions of ice.
 utol = 5.0
 
+parameters['allow_extrapolation'] = True
+
 def inside(x, on_boundary):
   return (Unorm(x[0],x[1]) < utol) or on_boundary 
    
