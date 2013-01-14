@@ -204,7 +204,9 @@ def inside(x, on_boundary):
                        (x[0] > 0.5 - DOLFIN_EPS && x[1] > 0.5 - DOLFIN_EPS))
 
    
-dbc = DirichletBC(func_space, Hin, inside)
+dbc = DirichletBC(func_space, Hin, Unorm(x[0],x[1]) < utol) or "on_boundary && \
+                       (x[0] < DOLFIN_EPS | x[1] < DOLFIN_EPS | \
+                       (x[0] > 0.5 - DOLFIN_EPS && x[1] > 0.5 - DOLFIN_EPS))"
 
 # Solution and Trial function
 H = Function(func_space)
