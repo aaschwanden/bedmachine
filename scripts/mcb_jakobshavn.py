@@ -10,7 +10,9 @@ def generate_expression_from_gridded_data(x, y, var, method='bil'):
     if (method=="bil"):
       interpolant = RectBivariateSpline(x, y, var)
     elif (method=="nearest"):
-      interpolant = NearestNDInterpolator(x, y, var)
+      X,Y = np.meshgrid(x,y)
+      coords = np.vstack((X.flatten(),Y.flatten())).T
+      interpolant = NearestNDInterpolator(coords, var)
     else:
       print("method not recongnized: %s" % method)
     class newExpression(Expression):
