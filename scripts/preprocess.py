@@ -48,16 +48,6 @@ fill_value = -2e-9
 # proj4 to convert to user-specified coordinate reference system.
 x, y, lon, lat, wgs84surf, wgs84bed = np.loadtxt(data_file, unpack=True, skiprows=5, delimiter=',')
 
-# find missing values
-# FIXME: not very smart, there could be missing values in other fields too
-idx = np.nonzero(wgs84bed==miss_val)
-
-x = np.delete(x, idx)
-y = np.delete(y, idx)
-lat = np.delete(lat, idx)
-lon = np.delete(lon, idx)
-wgs84surf = np.delete(wgs84surf, idx)
-wgs84bed = np.delete(wgs84bed, idx)
 
 # also, we should do some quality check here
 wgs84thk = (wgs84surf - wgs84bed)

@@ -105,16 +105,15 @@ parser.add_argument('-mod_field',
                     default='gid', 
                     help='the field to use for modulus decimation')
 parser.add_argument('--port',
+                    type=int,
                     default=5433, 
                     help='ssh port')
 
 args = parser.parse_args()
 port = args.port
-print port
-#print '#', args
 
 # set up connection to database
-conn = psycopg2.connect("dbname=%s host=%s user=nobody port=5433" % (dbname, dbhost))
+conn = psycopg2.connect("dbname=%s host=%s user=nobody port=%s" % (dbname, dbhost, str(port)))
 curs=conn.cursor()
 
 # list tables
@@ -234,7 +233,7 @@ print ('# ' + poly_str)
 
 #
 # set up connection to database
-conn = psycopg2.connect("dbname=%s host=%s user=nobody port=5433" % (dbname, dbhost))
+conn = psycopg2.connect("dbname=%s host=%s user=nobody port=%s" % (dbname, dbhost, str(port)))
 # 
 # setup query in parts
 #

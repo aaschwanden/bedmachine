@@ -33,13 +33,30 @@ filename=jak_basin
 # But we leave it at that for now. In the longer run, we need a python 
 # script that downloads the data and puts it into a more appriate format
 # than ASCII.
-# ssh bmachuser@icebridge.sr.unh.edu python general/general_query.py -table cresis_gr -fields "wgs84surf,wgs84bed" -epsg $epsg_code_out -and_clause "wgs84surf\>-500" -box $minlon $maxlon $minlat $maxlat  -mod_val $mod_val -mod_field gid > ${filename}.txt
+# TODO:
+# -9999 is the missing value. That should be dealt with in a smarter way.
+python scripts/general_query.py -table cresis_gr -fields "wgs84surf,wgs84bed" -epsg $epsg_code_out -and_clause "wgs84bed>-9999" -box $minlon $maxlon $minlat $maxlat  -mod_val $mod_val -mod_field gid > ${filename}.txt
 
-python scripts/preprocess.py -g 500 -n $NN ${filename}.txt ${filename}.nc
+# grid spacing
+GS=500
+# destination area in EPSG:3413 coordinates
+xmin=-230000.0
+xmax=80000.0
+ymin=-2350000.0
+ymax=-2200000.0
+python scripts/preprocess.py -g $GS --bounds $xmin $xmax $ymin $ymax -n $NN ${filename}.txt ${filename}.nc
 # nc2cdo.py is from pism/util/
 # it adds lat/lon, but also the 4 grid corners of each cell, needed for
 # conservative remapping via CDO.
 nc2cdo.py ${filename}.nc
+
+# CReSIS data set
+CRESIS=Jakobshavn_2006_2012_Composite
+CRESISNC=cresis_thk.nc
+wget -nc --no-check-certificate https://data.cresis.ku.edu/data/grids/$CRESIS.zip
+unzip -o $CRESIS.zip
+WARPOPTIONS=" -overwrite -multi -r bilinear -te $xmin $ymin $xmax $ymax -tr $GS $GS -t_srs EPSG:$epsg_code_out"
+gdalwarp $WARPOPTIONS -of netCDF $CRESIS/grids/jakobshavn_2006_2012_composite_thickness.txt $CRESISNC
 
 # get file; see page http://websrv.cs.umt.edu/isis/index.php/Present_Day_Greenland
 DATAVERSION=1.1

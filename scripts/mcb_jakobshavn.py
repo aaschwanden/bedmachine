@@ -2,12 +2,17 @@
 
 import numpy as np
 from scipy.io import netcdf_file as CDF
-import dolfin as dolf
+from dolfin import *
 
-def generate_expression_from_gridded_data(x, y, var):
+def generate_expression_from_gridded_data(x, y, var, method='bil'):
     from scipy.interpolate import RectBivariateSpline
-    interpolant = RectBivariateSpline(x, y, var)
-    class newExpression(dolf.Expression):
+    if (method=="bil"):
+      interpolant = RectBivariateSpline(x, y, var)
+    elif (method=="nearest"):
+      interpolant = NearestNDInterpolator(x, y, var)
+    else:
+      print("method not recongnized: %s" % method)
+    class newExpression(Expression):
         def __init_(self):
           pass
         def eval(self,values,x):
@@ -141,38 +146,39 @@ S = np.squeeze(permute(nc_bc.variables["usrf"], output_order=output_order))
 smb = np.squeeze(permute(nc_bc.variables["smb"], output_order=output_order))
 nc_bc.close()
 
-dolf.set_log_level(dolf.PROGRESS)
+set_log_level(PROGRESS)
 
 scale_factor = 1
 MM = int(np.ceil(M * scale_factor))
 NN = int(np.ceil(N * scale_factor))
 x_scaled = np.linspace(xmin, xmax, MM)
 y_scaled = np.linspace(ymin, ymax, NN)
-mesh = dolf.RectangleMesh(np.float(xmin), np.float(ymin),
+mesh = RectangleMesh(np.float(xmin), np.float(ymin),
                         np.float(xmax), np.float(ymax),
                         MM,
                         NN
                         )
 
-dolf.parameters["form_compiler"]["optimize"] = True
-func_space =  dolf.FunctionSpace(mesh,"CG", 1)
-func_space_dg =  dolf.FunctionSpace(mesh,"DG", 1)
+parameters["form_compiler"]["optimize"] = True
+func_space =  FunctionSpace(mesh,"CG", 1)
+func_space_dg =  FunctionSpace(mesh,"DG", 1)
 
-Hin = dolf.project(generate_expression_from_gridded_data(x, y, Hobs), func_space)
-H0 = dolf.project(generate_expression_from_gridded_data(x, y, H0), func_space)
-S = dolf.project(generate_expression_from_gridded_data(x, y, S), func_space)
-adot = dolf.project(generate_expression_from_gridded_data(x, y, smb), func_space)
-rho_d = dolf.project(generate_expression_from_gridded_data(x, y, rho), func_space_dg)
-u_o = dolf.project(generate_expression_from_gridded_data(x, y, uvel), func_space)
-v_o = dolf.project(generate_expression_from_gridded_data(x, y, vvel), func_space)
+Hin = project(generate_expression_from_gridded_data(x, y, Hobs), func_space)
+H0 = project(generate_expression_from_gridded_data(x, y, H0), func_space)
+S = project(generate_expression_from_gridded_data(x, y, S), func_space)
+adot = project(generate_expression_from_gridded_data(x, y, smb), func_space)
+rho_d = project(generate_expression_from_gridded_data(x, y, rho, method="nearest"),
+                func_space_dg)
+u_o = project(generate_expression_from_gridded_data(x, y, uvel), func_space)
+v_o = project(generate_expression_from_gridded_data(x, y, vvel), func_space)
 
 # Velocity norm
-U = dolf.as_vector([u_o,v_o])  # unsmoothed
-Unorm = dolf.project(dolf.sqrt(dolf.dot(U,U)) + 1e-10)
+U = as_vector([u_o,v_o])  # unsmoothed
+Unorm = project(sqrt(dot(U,U)) + 1e-10)
 
 # Steepest descents velocities (if needed)
-u_s = dolf.project(-S.dx(0) * Unorm)
-v_s = dolf.project(-S.dx(1) * Unorm)
+u_s = project(-S.dx(0) * Unorm)
+v_s = project(-S.dx(1) * Unorm)
 
 #u_threshold = 500000. # Norms of velocity greater than this are modeled 
 
@@ -189,14 +195,14 @@ utol = 5.0
 def inside(x, on_boundary):
   return (Unorm(x[0],x[1]) < utol) or on_boundary 
    
-dbc = dolf.DirichletBC(func_space, Hin, inside)
+dbc = DirichletBC(func_space, Hin, inside)
 
 # Solution and Trial function
-H = dolf.Function(func_space)
-dH = dolf.TrialFunction(func_space)
+H = Function(func_space)
+dH = TrialFunction(func_space)
 
 # Test Function
-phi = dolf.TestFunction(func_space)
+phi = TestFunction(func_space)
 
 # Misfit penalty.  Penalized differences between the calculated and observed thickness.
 
@@ -208,15 +214,15 @@ gamma = 50.0 # This is really large in this case because mass conservation is ba
 alpha = 2.
 
 # Objective function
-I = (dolf.div(U*H) - adot)**2*dolf.dx \
-    + gamma*rho_d*0.5*(H-H0)**2*dolf.dx \
-    + alpha*(H.dx(0)**2 + H.dx(1)**2)*dolf.dx
+I = (div(U*H) - adot)**2*dx \
+    + gamma*rho_d*0.5*(H-H0)**2*dx \
+    + alpha*(H.dx(0)**2 + H.dx(1)**2)*dx
 
-delta_I = dolf.derivative(I, H, phi)
+delta_I = derivative(I, H, phi)
 
-J = dolf.derivative(delta_I, H, dH)
+J = derivative(delta_I, H, dH)
 
-params = dolf.NonlinearVariationalSolver.default_parameters()
+params = NonlinearVariationalSolver.default_parameters()
 params['newton_solver']['maximum_iterations'] = 20
 
-dolf.solve(delta_I==0, H, dbc, J=J, solver_parameters=params)
+solve(delta_I==0, H, dbc, J=J, solver_parameters=params)
