@@ -6,6 +6,7 @@ from dolfin import *
 
 def generate_expression_from_gridded_data(x, y, var, method='bil'):
     from scipy.interpolate import RectBivariateSpline
+    from scipy.interpolate import NearestNDInterpolator
     if (method=="bil"):
       interpolant = RectBivariateSpline(x, y, var)
     elif (method=="nearest"):
