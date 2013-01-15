@@ -119,7 +119,7 @@ xdim, ydim, zdim, tdim = get_dims(nc_data)
 x = nc_data.variables[xdim][:]
 y = nc_data.variables[ydim][:]
 rho = np.squeeze(permute(nc_data.variables["rho"], output_order=output_order))
-H0 = np.squeeze(permute(nc_data.variables["thk"], output_order=output_order))
+Hfl = np.squeeze(permute(nc_data.variables["thk"], output_order=output_order))
 M = len(x)
 xmin = x[0]
 xmax = x[-1]
@@ -137,7 +137,7 @@ uvel_fill = nc_vel.variables["us"]._FillValue
 uvel[uvel==uvel_fill] = 0.
 vvel = np.squeeze(permute(nc_vel.variables["vs"], output_order=output_order)).copy()
 vvel_fill = nc_vel.variables["vs"]._FillValue
-vvel[uvel==vvel_fill] = 0.
+vvel[vvel==vvel_fill] = 0.
 nc_vel.close()
 
 output_order = ("time", "x", "y")
@@ -154,7 +154,7 @@ nc_bc.close()
 
 set_log_level(PROGRESS)
 
-scale_factor = 1
+scale_factor = .51
 MM = int(np.ceil(M * scale_factor))
 NN = int(np.ceil(N * scale_factor))
 x_scaled = np.linspace(xmin, xmax, MM)
@@ -165,12 +165,11 @@ mesh = RectangleMesh(np.float(xmin), np.float(ymin),
                         NN
                         )
 
-parameters["form_compiler"]["optimize"] = True
-func_space =  FunctionSpace(mesh,"CG", 1)
-func_space_dg =  FunctionSpace(mesh,"DG", 1)
+func_space =  FunctionSpace(mesh, "CG", 1)
+func_space_dg =  FunctionSpace(mesh, "DG", 1)
 
 Hin = project(generate_expression_from_gridded_data(x, y, Hobs), func_space)
-H0 = project(generate_expression_from_gridded_data(x, y, H0), func_space)
+H0 = project(generate_expression_from_gridded_data(x, y, Hfl), func_space)
 S = project(generate_expression_from_gridded_data(x, y, S), func_space)
 adot = project(generate_expression_from_gridded_data(x, y, smb), func_space)
 rho_d = project(generate_expression_from_gridded_data(x, y, rho, method="nearest"),
@@ -186,24 +185,18 @@ Unorm = project(sqrt(dot(U,U)) + 1e-10)
 u_s = project(-S.dx(0) * Unorm)
 v_s = project(-S.dx(1) * Unorm)
 
-#u_threshold = 500000. # Norms of velocity greater than this are modeled 
-
-#u_o.vector()[Unorm.vector()>u_threshold] = u_os.vector()[Unorm.vector()>u_threshold]
-#v_o.vector()[Unorm.vector()>u_threshold] = v_os.vector()[Unorm.vector()>u_threshold]
-
-# Velocity vector
-#U = as_vector([u_o,v_o]) 
-#Unorm = project(sqrt(dot(U,U)) + 1e-10)
-
 # Ignore slow regions of ice.
 utol = 5.0
 
+# Is this correct??
 def inside(x, on_boundary):
   return (Unorm(x[0],x[1]) < utol) or (on_boundary and \
-                       (x[0] < DOLFIN_EPS | x[1] < DOLFIN_EPS | \
+                       (x[0] < DOLFIN_EPS or x[1] < DOLFIN_EPS or \
                        (x[0] > 0.5 - DOLFIN_EPS and x[1] > 0.5 - DOLFIN_EPS)))
 
-   
+print("------------------------------------------------")
+print("Applying boundary conditions")   
+print("------------------------------------------------\n")
 dbc = DirichletBC(func_space, Hin, inside)
 
 # Solution and Trial function
@@ -215,9 +208,7 @@ phi = TestFunction(func_space)
 
 # Misfit penalty.  Penalized differences between the calculated and observed thickness.
 
-gamma = 50.0 # This is really large in this case because mass conservation is badly out.
-# If this is lower, then the flight lines aren't obeyed near the terminus.
-# This is something interesting to consider, mcb in cases where dS/dt > 100 m/a
+gamma = 5.0
 
 # Regularization parameter (penalty on the gradient of the solution)
 alpha = 2.
@@ -231,7 +222,13 @@ delta_I = derivative(I, H, phi)
 
 J = derivative(delta_I, H, dH)
 
-params = NonlinearVariationalSolver.default_parameters()
-params['newton_solver']['maximum_iterations'] = 20
+print("------------------------------------------------")
+print("Solving variational problem")   
+print("------------------------------------------------\n")
+solve(delta_I==0, H, dbc, J=J)
 
-solve(delta_I==0, H, dbc, J=J, solver_parameters=params)
+file_handle = File('bed.pvd')
+file_handle<<project(S-H)
+
+file_handle = File('thk.pvd')
+file_handle<<project(H)
