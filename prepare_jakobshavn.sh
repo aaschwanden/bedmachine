@@ -79,6 +79,12 @@ wget -nc ftp://ftp-bprc.mps.ohio-state.edu/downloads/gdg/gimpdem/$GIMP.tif.zip
 unzip -o $GIMP.tif.zip
 gdalwarp $WARPOPTIONS -of netCDF $GIMP.tif $GIMP.nc
 ncrename -v Band1,usurf $GIMP.nc
+nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' $GIMP.nc
+if [ [$NN == 1] ] ; then
+  REMAP_EXTRAPOLATE=on cdo remapbil,${filename}.nc $GIMP.nc jak_$GIMP.nc
+else
+  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,${filename}.nc $GIMP.nc jak_$GIMP.nc
+fi
 # TODO combine with SeaRISE file
 
 # get SeaRISE file; see page http://websrv.cs.umt.edu/isis/index.php/Present_Day_Greenland
@@ -98,12 +104,12 @@ SEARISENAME=Greenland_5km_v${DATAVERSION}_small.nc
 cdo selvar,smb,topg $DATANAME $SEARISENAME
 OUTFILE=jak_input_v${DATAVERSION}.nc
 if [ [$NN == 1] ] ; then
-  cdo remapbil,${filename}.nc $SEARISENAME $OUTFILE
+  REMAP_EXTRAPOLATE=on cdo remapbil,${filename}.nc $SEARISENAME $OUTFILE
 else
-  cdo -P $NN remapbil,${filename}.nc $SEARISENAME $OUTFILE
+  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,${filename}.nc $SEARISENAME $OUTFILE
 fi
 
-ncks -A -v usurf $GIMP.nc $OUTFILE
+ncks -A -v usurf jak_$GIMP.nc $OUTFILE
 ncks -A -v Band1 $CRESISNC $OUTFILE
 ncrename -v Band1,thk $OUTFILE
 

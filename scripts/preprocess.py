@@ -41,7 +41,8 @@ grid_spacing = options.grid_spacing
 miss_val = options.miss_val
 nprocs = options.nprocs
 fill_value = -2e-9
-
+# FIXME: how to choose this value?
+radius_of_influence = 500  # m
 
 # read in data
 # we could make this more flexible by only reading lon, lat and then use
@@ -72,7 +73,7 @@ area_def = pr.utils.get_area_def(area_id, area_name, proj_id, proj4_str,
 swath_def = pr.geometry.SwathDefinition(lons=lon, lats=lat)
 result = pr.kd_tree.resample_nearest(swath_def, wgs84thk,
                                      area_def,
-                                     radius_of_influence=500,
+                                     radius_of_influence=radius_of_influence,
                                      epsilon=0.5,
                                      fill_value=fill_value,
                                      nprocs=nprocs)
