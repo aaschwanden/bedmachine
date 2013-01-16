@@ -4,6 +4,28 @@ import numpy as np
 from scipy.io import netcdf_file as CDF
 from dolfin import *
 
+from argparse import ArgumentParser
+
+
+class DataOutput:
+    def __init__(self,directory):
+        if directory[-1]=='/':
+            self.directory = directory
+        else:
+            self.directory = directory+'/'
+            
+    def write_dictionary_of_files(self,d,extension='.pvd'):
+        """ Looking for a dictionary d of data to save. The keys are the file 
+        names, and the values are the data fields to be stored. Also takes an
+        optional extension to determine if it is pvd or xml output."""
+        for filename in d:
+            file_handle = File(self.directory+filename+extension)
+            file_handle<<d[filename]
+    def write_one_file(self,name,data,extension='.pvd'):
+        file_handle = File(self.directory+name+extension)
+        file_handle<<data
+
+
 def generate_expression_from_gridded_data(x, y, var, method='bil'):
     from scipy.interpolate import RectBivariateSpline
     from scipy.interpolate import NearestNDInterpolator
@@ -101,11 +123,17 @@ def permute(variable, output_order=('time', 'z', 'zb', 'y', 'x')):
     else:
         return variable[:]  # so that it does not break processing "mapping"
 
-# Note:
-# We don't need to know the dimension order in the netCDF file
-# because we get the dimension via get_dims, and then perumute
-# to the desired order via permute.
 
+# Set up the option parser
+parser = ArgumentParser()
+parser.description = '''A script to preprocess ice thickness data.'''
+parser.add_argument("FILE", nargs='*')
+parser.add_argument("-s","--scale_factor", dest="scale_factor",
+                    type=float,
+                    help='''Scale the element size Values<1 mean a coarser mesh. Default=1''',
+                    default=1.)
+options = parser.parse_args()
+scale_factor = options.scale_factor
 parameters['allow_extrapolation'] = True
 
 
@@ -146,19 +174,17 @@ nc_bc = CDF(bc_file, 'r')
 xdim, ydim, zdim, tdim = get_dims(nc_bc)
 Hobs = np.squeeze(permute(nc_bc.variables["thk"], output_order=output_order)).copy()
 Hobs[Hobs<thk_min] = thk_min
-# No, we don't really want the upper surface fromm the SeaRISE data set.
-# But it will do for testing puropses.
 S = np.squeeze(permute(nc_bc.variables["usurf"], output_order=output_order))
 smb = np.squeeze(permute(nc_bc.variables["smb"], output_order=output_order))
 nc_bc.close()
 
 set_log_level(PROGRESS)
 
-scale_factor = .51
+extend = 10
 MM = int(np.ceil(M * scale_factor))
 NN = int(np.ceil(N * scale_factor))
-x_scaled = np.linspace(xmin, xmax, MM)
-y_scaled = np.linspace(ymin, ymax, NN)
+x_scaled = np.linspace(xmin + extend, xmax + extend, MM)
+y_scaled = np.linspace(ymin + extend, ymax + extend, NN)
 mesh = RectangleMesh(np.float(xmin), np.float(ymin),
                         np.float(xmax), np.float(ymax),
                         MM,
@@ -194,9 +220,6 @@ def inside(x, on_boundary):
                        (x[0] < DOLFIN_EPS or x[1] < DOLFIN_EPS or \
                        (x[0] > 0.5 - DOLFIN_EPS and x[1] > 0.5 - DOLFIN_EPS)))
 
-print("------------------------------------------------")
-print("Applying boundary conditions")   
-print("------------------------------------------------\n")
 dbc = DirichletBC(func_space, Hin, inside)
 
 # Solution and Trial function
@@ -207,7 +230,6 @@ dH = TrialFunction(func_space)
 phi = TestFunction(func_space)
 
 # Misfit penalty.  Penalized differences between the calculated and observed thickness.
-
 gamma = 5.0
 
 # Regularization parameter (penalty on the gradient of the solution)
@@ -222,13 +244,10 @@ delta_I = derivative(I, H, phi)
 
 J = derivative(delta_I, H, dH)
 
-print("------------------------------------------------")
-print("Solving variational problem")   
-print("------------------------------------------------\n")
 solve(delta_I==0, H, dbc, J=J)
 
-file_handle = File('bed.pvd')
-file_handle<<project(S-H)
+do = DataOutput('./')
+data_out = {'mcb_bed':project(S-H),'cresis_bed':project(S-Hin),'flux_div':project(div(U*H)),'U':Unorm,'density':rho_d,\
+        'u_o':u_o,'v_o':v_o,'adot':adot,'S':S,'H0':H0,'rho_d':rho_d,'thick':H,'delta_H':project((H-H0)*rho_d)}
+do.write_dictionary_of_files(data_out)
 
-file_handle = File('thk.pvd')
-file_handle<<project(H)
