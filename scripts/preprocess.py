@@ -118,14 +118,14 @@ thk_var.units = "m"
 thk_var.long_name = "land ice thickness"
 thk_var.standard_name = "land_ice_thickness"
 thk_var.grid_mapping = mapping_var
-thk_var[:] = result
+thk_var[:] = np.flipud(result)
 
 rho_var = nc.createVariable("rho", 'b', dimensions=("y", "x"),fill_value=fill_value)
 rho_var.long_name = "data density integer mask"
 rho_var.flag_values = "0b, 1b"
 rho_var.flag_meanings = "no_data data"
 rho_var.grid_mapping = mapping_var
-rho_var[:] = rho
+rho_var[:] = np.flipud(rho)
 
 x[:] = easting
 y[:] = northing

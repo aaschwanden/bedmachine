@@ -50,15 +50,18 @@ xmin=-230000.0
 xmax=80000.0
 ymin=-2350000.0
 ymax=-2200000.0
-python scripts/preprocess.py -g $GS --bounds $xmin $xmax $ymin $ymax -n $NN ${filename}.txt tmp_${filename}.nc
+#python scripts/preprocess.py -g $GS --bounds $xmin $xmax $ymin $ymax -n $NN ${filename}.txt tmp_${filename}.nc
 # nc2cdo.py is from pism/util/
 # it adds lat/lon, but also the 4 grid corners of each cell, needed for
 # conservative remapping via CDO.
-nc2cdo.py tmp_${filename}.nc
+#fill_missing.py -e 100 -v thk -f tmp_${filename}.nc -o ${filename}.nc
 cdo setmisstoc,-9999. -selvar,thk tmp_${filename}.nc ${filename}.nc
 ncatted -a _FillValue,,d,, ${filename}.nc
 ncks -A -v thk -x tmp_${filename}.nc ${filename}.nc
-WARPOPTIONS=" -overwrite -multi -r bilinear -te $xmin $ymin $xmax $ymax -tr $GS $GS -t_srs EPSG:$epsg_code_out"
+nc2cdo.py ${filename}.nc
+
+
+WARPOPTIONS="-overwrite -multi -r bilinear -te $xmin $ymin $xmax $ymax -tr $GS $GS -t_srs EPSG:$epsg_code_out"
 
 # CReSIS data set
 CRESIS=Jakobshavn_2006_2012_Composite
@@ -66,8 +69,14 @@ CRESISNC=cresis_thk.nc
 wget -nc --no-check-certificate https://data.cresis.ku.edu/data/grids/$CRESIS.zip
 unzip -o $CRESIS.zip
 gdalwarp $WARPOPTIONS -of netCDF $CRESIS/grids/jakobshavn_2006_2012_composite_thickness.txt tmp_$CRESISNC
+nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$CRESISNC
+if [ [$NN == 1] ] ; then
+  REMAP_EXTRAPOLATE=on cdo remapbil,${filename}.nc tmp_$CRESISNC tmp2_$CRESISNC
+else
+  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,${filename}.nc tmp_$CRESISNC tmp2_$CRESISNC
+fi
 
-cdo -O setmisstoc,-9999. tmp_$CRESISNC $CRESISNC
+cdo -O setmisstoc,-9999. tmp2_$CRESISNC $CRESISNC
 ncatted -a _FillValue,,d,, $CRESISNC
 
 ncks -A -v Band1 $CRESISNC ${filename}.nc
@@ -85,7 +94,6 @@ if [ [$NN == 1] ] ; then
 else
   REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,${filename}.nc $GIMP.nc jak_$GIMP.nc
 fi
-# TODO combine with SeaRISE file
 
 # get SeaRISE file; see page http://websrv.cs.umt.edu/isis/index.php/Present_Day_Greenland
 DATAVERSION=1.1
