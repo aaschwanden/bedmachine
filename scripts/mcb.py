@@ -132,17 +132,38 @@ parser.add_argument("-s","--scale_factor", dest="scale_factor",
                     type=float,
                     help='''Scale the element size Values<1 mean a coarser mesh. Default=1''',
                     default=1.)
+parser.add_argument("-a","--alpha", dest="alpha", type=float,
+                    help='''Regularization parameter''',
+                    default=2.0)
+parser.add_argument("-g","--gamma", dest="gamma", type=float,
+                    help='''Misfit penalty''',
+                    default=2.0)
+parser.add_argument("-i","--in_file", dest="data_filename",
+                    help='''File containing target thickness and density''',
+                    default='jak_basin.nc')
+parser.add_argument("-v","--velocity_file", dest="vel_filename",
+                    help='''File containing x,y components of surface velocity''',
+                    default='jak_surface_vels.nc')
+parser.add_argument("-b","--bc_file", dest="bc_filename",
+                    help='''File containing ice surface, and other boundary conditions.''',
+                    default='jak_input_v1.1..nc')
 options = parser.parse_args()
 scale_factor = options.scale_factor
 parameters['allow_extrapolation'] = True
-
+data_filename = options.data_filename
+vel_filename = options.vel_filename
+bc_filename = options.bc_filename
+# Misfit penalty.  Penalized differences between the calculated and observed thickness.
+gamma = options.gamma
+# Regularization parameter (penalty on the gradient of the solution)
+alpha = options.alpha
 
 # minimum ice thickness
 thk_min = 10
 output_order = ("x", "y")
 
-data_file="jak_basin.nc"
-nc_data = CDF(data_file, 'r')
+
+nc_data = CDF(data_filename, 'r')
 xdim, ydim, zdim, tdim = get_dims(nc_data)
 x = nc_data.variables[xdim][:]
 y = nc_data.variables[ydim][:]
@@ -156,9 +177,7 @@ ymin = y[0]
 ymax = y[-1]
 nc_data.close()
 
-# TODO: make fill value stuff more robust
-vel_file="jak_surf_vels.nc"
-nc_vel = CDF(vel_file, 'r')
+nc_vel = CDF(vel_filename, 'r')
 xdim, ydim, zdim, tdim = get_dims(nc_vel)
 uvel = np.squeeze(permute(nc_vel.variables["us"], output_order=output_order)).copy()
 uvel_fill = nc_vel.variables["us"]._FillValue
@@ -169,8 +188,7 @@ vvel[vvel==vvel_fill] = 0.
 nc_vel.close()
 
 output_order = ("time", "x", "y")
-bc_file="jak_input_v1.1.nc"
-nc_bc = CDF(bc_file, 'r')
+nc_bc = CDF(bc_filename, 'r')
 xdim, ydim, zdim, tdim = get_dims(nc_bc)
 Hobs = np.squeeze(permute(nc_bc.variables["thk"], output_order=output_order)).copy()
 Hobs[Hobs<thk_min] = thk_min
@@ -180,13 +198,13 @@ nc_bc.close()
 
 set_log_level(PROGRESS)
 
-extend = 10
+extend = 50
 MM = int(np.ceil(M * scale_factor))
 NN = int(np.ceil(N * scale_factor))
-x_scaled = np.linspace(xmin + extend, xmax + extend, MM)
-y_scaled = np.linspace(ymin + extend, ymax + extend, NN)
-mesh = RectangleMesh(np.float(xmin), np.float(ymin),
-                        np.float(xmax), np.float(ymax),
+x_scaled = np.linspace(xmin - extend, xmax + extend, MM)
+y_scaled = np.linspace(ymin - extend, ymax + extend, NN)
+mesh = RectangleMesh(np.float(xmin) - extend, np.float(ymin - extend),
+                        np.float(xmax + extend) ,np.float(ymax + extend),
                         MM,
                         NN
                         )
@@ -229,12 +247,6 @@ dH = TrialFunction(func_space)
 # Test Function
 phi = TestFunction(func_space)
 
-# Misfit penalty.  Penalized differences between the calculated and observed thickness.
-gamma = 5.0
-
-# Regularization parameter (penalty on the gradient of the solution)
-alpha = 2.
-
 # Objective function
 I = (div(U*H) - adot)**2*dx \
     + gamma*rho_d*0.5*(H-H0)**2*dx \
@@ -246,8 +258,69 @@ J = derivative(delta_I, H, dH)
 
 solve(delta_I==0, H, dbc, J=J)
 
+prefix, suffix = data_filename.split('.')
+# Dolfin file handler doesn't like unicode
+prefix = str(prefix)
+gamma_str = '_'.join(['gamma', str(gamma)])
+alpha_str = '_'.join(['alpha', str(alpha)])
 do = DataOutput('./')
-data_out = {'mcb_bed':project(S-H),'cresis_bed':project(S-Hin),'flux_div':project(div(U*H)),'U':Unorm,'density':rho_d,\
-        'u_o':u_o,'v_o':v_o,'adot':adot,'S':S,'H0':H0,'rho_d':rho_d,'thick':H,'delta_H':project((H-H0)*rho_d)}
+
+data_out = {'_'.join([prefix, alpha_str, gamma_str, 'mcb_bed']) : project(S-H),
+            '_'.join([prefix, alpha_str, gamma_str, 'cresis_bed']) : project(S-Hin),
+            '_'.join([prefix, alpha_str, gamma_str, 'cresis_flux_div_obs']) : project(div(U*Hin)),
+            '_'.join([prefix, alpha_str, gamma_str, 'mcb_flux_div']) : project(div(U*H)),
+            '_'.join([prefix, alpha_str, gamma_str, 'U']) : Unorm,
+            '_'.join([prefix, alpha_str, gamma_str, 'rho_d']) : rho_d,
+            '_'.join([prefix, alpha_str, gamma_str, 'adot']) : adot,
+            '_'.join([prefix, alpha_str, gamma_str, 'S']) : S,
+            '_'.join([prefix, alpha_str, gamma_str, 'H0']) : H0,
+            '_'.join([prefix, alpha_str, gamma_str, 'thk']) : H,
+            '_'.join([prefix, alpha_str, gamma_str, 'delta_H'])  : project(H-H0),
+            '_'.join([prefix, alpha_str, gamma_str, 'delta_H_obs'])  : project(H-Hin)
+            }
 do.write_dictionary_of_files(data_out)
 
+## from shutil import copy, move
+## from tempfile import mkstemp
+## from os import close
+## import scitools.BoxField
+
+## input_filename = data_filename
+## output_filename = "jak_results.nc"
+
+## mesh_out = RectangleMesh(np.float(xmin), np.float(ymin),
+##                          np.float(xmax), np.float(ymax),
+##                          M, N)
+
+## func_space_out =  FunctionSpace(mesh_out, "CG", 1)
+## func_space_dg_out =  FunctionSpace(mesh_out, "DG", 1)
+
+## print "Creating the temporary file..."
+## try:
+##     (handle, tmp_filename) = mkstemp()
+##     close(handle) # mkstemp returns a file handle (which we don't need)
+##     copy(input_filename, tmp_filename)
+## except IOError:
+##     print "ERROR: Can't create %s, Exiting..." % tmp_filename
+
+## try:
+##     nc = CDF(tmp_filename, 'r')
+## except Exception, message:
+##    print message
+##    print "Note: %s was not modified." % output_filename
+##    exit(-1)
+
+
+
+## H_out = interpolate(H, func_space_out)
+## H_box = scitools.BoxField.dolfin_function2BoxField(H_out, mesh_out, (M,N))
+## H_values = H_box.values
+
+
+## nc.close()
+
+## try:
+##     move(tmp_filename, output_filename)
+## except:
+##     print "Error moving %s to %s. Exiting..." % (tmp_filename,
+##                                                  output_filename)
