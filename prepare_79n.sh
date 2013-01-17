@@ -10,7 +10,7 @@
 
 set -x -e
 
-# run ./prepare_jakobshavn.sh 1 if you havent CDO compiled with OpenMP
+# run ./prepare_79n.sh 1 if you havent CDO compiled with OpenMP
 NN=8  # default number of processors
 if [ $# -gt 0 ] ; then
   NN="$1"
@@ -24,17 +24,17 @@ fi
 
 
 # corners of lon,lat box for query
-minlon=-51
-maxlon=-42
-minlat=68.25
-maxlat=70
+minlon=-32
+maxlon=-18
+minlat=78
+maxlat=79.5
 
 mod_val=1
 mod_field='gid'
 
 epsg_code_out=3413
 
-filename=jak_basin
+filename=negrn_basin
 
 # Well this takes a while...
 # But we leave it at that for now. In the longer run, we need a python 
@@ -42,14 +42,13 @@ filename=jak_basin
 # than ASCII.
 # TODO:
 # -9999 is the missing value. That should be dealt with in a smarter way.
-# python scripts/general_query.py -table cresis_gr -fields "wgs84surf,wgs84bed" -epsg $epsg_code_out -and_clause "wgs84bed>-9999" -box $minlon $maxlon $minlat $maxlat  -mod_val $mod_val -mod_field gid > ${filename}.txt
-
+#python scripts/general_query.py -table cresis_gr -fields "wgs84surf,wgs84bed" -epsg $epsg_code_out -and_clause "wgs84bed>-9999" -box $minlon $maxlon $minlat $maxlat  -mod_val $mod_val -mod_field gid > ${filename}.txt
 
 # destination area in EPSG:3413 coordinates
-xmin=-230000.0
-xmax=80000.0
-ymin=-2350000.0
-ymax=-2200000.0
+xmin=320000.0
+xmax=540000.0
+ymin=-1248000.0
+ymax=-1007000.0
 python scripts/preprocess.py -g $GS --bounds $xmin $xmax $ymin $ymax -n $NN ${filename}.txt tmp_${filename}_${GS}m.nc
 # nc2cdo.py is from pism/util/
 # it adds lat/lon, but also the 4 grid corners of each cell, needed for
@@ -64,11 +63,11 @@ nc2cdo.py ${filename}_${GS}m.nc
 WARPOPTIONS="-overwrite -multi -r bilinear -te $xmin $ymin $xmax $ymax -tr $GS $GS -t_srs EPSG:$epsg_code_out"
 
 # CReSIS data set
-CRESIS=Jakobshavn_2006_2012_Composite
-CRESISNC=cresis_thk_${GS}m.nc
+CRESIS=79N_2010_2011_Composite
+CRESISNC=negrn_thk_${GS}m.nc
 wget -nc --no-check-certificate https://data.cresis.ku.edu/data/grids/$CRESIS.zip
 unzip -o $CRESIS.zip
-gdalwarp $WARPOPTIONS -of netCDF $CRESIS/grids/jakobshavn_2006_2012_composite_thickness.txt tmp_$CRESISNC
+gdalwarp $WARPOPTIONS -of netCDF $CRESIS/grids/79n_2010_2011_composite_thickness.txt tmp_$CRESISNC
 nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$CRESISNC
 if [ [$NN == 1] ] ; then
   REMAP_EXTRAPOLATE=on cdo remapbil,${filename}_${GS}m.nc tmp_$CRESISNC tmp2_$CRESISNC
@@ -90,9 +89,9 @@ gdalwarp $WARPOPTIONS -of netCDF $GIMP.tif $GIMP.nc
 ncrename -v Band1,usurf $GIMP.nc
 nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' $GIMP.nc
 if [ [$NN == 1] ] ; then
-  REMAP_EXTRAPOLATE=on cdo remapbil,${filename}_${GS}m.nc $GIMP.nc jak_${GIMP}_${GS}m.nc
+  REMAP_EXTRAPOLATE=on cdo remapbil,${filename}_${GS}m.nc $GIMP.nc negrn_$GIMP_${GS}m.nc
 else
-  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,${filename}_${GS}m.nc $GIMP.nc jak_${GIMP}_${GS}m.nc
+  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,${filename}_${GS}m.nc $GIMP.nc negrn_$GIMP_${GS}m.nc
 fi
 
 # get SeaRISE file; see page http://websrv.cs.umt.edu/isis/index.php/Present_Day_Greenland
@@ -110,14 +109,14 @@ nc2cdo.py $DATANAME
 
 SEARISENAME=Greenland_5km_v${DATAVERSION}_small.nc
 cdo selvar,smb,topg $DATANAME $SEARISENAME
-OUTFILE=jak_input_v${DATAVERSION}_${GS}m.nc
+OUTFILE=negrn_input_v${DATAVERSION}_${GS}m.nc
 if [ [$NN == 1] ] ; then
   REMAP_EXTRAPOLATE=on cdo remapbil,${filename}_${GS}m.nc $SEARISENAME $OUTFILE
 else
   REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,${filename}_${GS}m.nc $SEARISENAME $OUTFILE
 fi
 
-ncks -A -v usurf jak_${GIMP}_${GS}m.nc $OUTFILE
+ncks -A -v usurf negrn_$GIMP_${GS}m.nc $OUTFILE
 ncks -A -v Band1 $CRESISNC $OUTFILE
 ncrename -v Band1,thk $OUTFILE
 
@@ -129,7 +128,7 @@ ncatted -a grid_mapping,thk,o,c,"mapping" -a grid_mapping,topg,o,c,"mapping" -a 
 # remap surface velocities, select area frist to speed
 # things up a bit
 VELIN=surf_vels.nc
-VELOUT=jak_surf_vels_${GS}m.nc
+VELOUT=negrn_surf_vels_${GS}m.nc
 if [ [$NN == 1] ] ; then
   cdo remapbil,${filename}_${GS}m.nc -sellonlatbox,$minlon,$maxlon,$minlat,$maxlat $VELIN $VELOUT
 else
