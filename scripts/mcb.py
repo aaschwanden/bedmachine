@@ -1,7 +1,14 @@
 #!/usr/bin/env python
 
+# Copyright (C) 2012-2013 Jesse Johnson
+#
+# Modifications by Andy Aschwanden
+
 import numpy as np
-from scipy.io import netcdf_file as CDF
+try:
+    from netCDF3 import Dataset as CDF
+except:
+    from netCDF4 import Dataset as CDF
 from dolfin import *
 
 from argparse import ArgumentParser
@@ -24,6 +31,7 @@ class DataOutput:
     def write_one_file(self,name,data,extension='pvd'):
         file_handle = File(self.directory+name+'.'+extension)
         file_handle<<data
+
 
 
 def generate_expression_from_gridded_data(x, y, var, method='bil'):
@@ -167,6 +175,7 @@ nc_data = CDF(data_filename, 'r')
 xdim, ydim, zdim, tdim = get_dims(nc_data)
 x = nc_data.variables[xdim][:]
 y = nc_data.variables[ydim][:]
+input_dimensions = nc_data.variables["thk"].dimensions
 rho = np.squeeze(permute(nc_data.variables["rho"], output_order=output_order))
 Hfl = np.squeeze(permute(nc_data.variables["thk"], output_order=output_order))
 M = len(x)
@@ -179,18 +188,18 @@ nc_data.close()
 
 nc_vel = CDF(vel_filename, 'r')
 xdim, ydim, zdim, tdim = get_dims(nc_vel)
-uvel = np.squeeze(permute(nc_vel.variables["us"], output_order=output_order)).copy()
+uvel = np.squeeze(permute(nc_vel.variables["us"], output_order=output_order))
 uvel_fill = nc_vel.variables["us"]._FillValue
-uvel[uvel==uvel_fill] = 0.
-vvel = np.squeeze(permute(nc_vel.variables["vs"], output_order=output_order)).copy()
+uvel[uvel.data==uvel_fill] = 0.
+vvel = np.squeeze(permute(nc_vel.variables["vs"], output_order=output_order))
 vvel_fill = nc_vel.variables["vs"]._FillValue
-vvel[vvel==vvel_fill] = 0.
+vvel[vvel.data==vvel_fill] = 0.
 nc_vel.close()
 
 output_order = ("time", "x", "y")
 nc_bc = CDF(bc_filename, 'r')
 xdim, ydim, zdim, tdim = get_dims(nc_bc)
-Hobs = np.squeeze(permute(nc_bc.variables["thk"], output_order=output_order)).copy()
+Hobs = np.squeeze(permute(nc_bc.variables["thk"], output_order=output_order))
 Hobs[Hobs<thk_min] = thk_min
 S = np.squeeze(permute(nc_bc.variables["usurf"], output_order=output_order))
 smb = np.squeeze(permute(nc_bc.variables["smb"], output_order=output_order))
@@ -280,13 +289,25 @@ data_out = {'_'.join([prefix, alpha_str, gamma_str, 'mcb_bed']) : project(S-H),
             }
 do.write_dictionary_of_files(data_out)
 
-## from shutil import copy, move
-## from tempfile import mkstemp
-## from os import close
-## import scitools.BoxField
 
-## input_filename = data_filename
-## output_filename = "jak_results.nc"
+def evaluate_regular_grid(f, x, y):
+    fa = np.zeros((y.size, x.size))
+    parameters['allow_extrapolation']=True
+    for i, xs in enumerate(x):
+        for j, ys in enumerate(y):
+            try:
+                fa[j,i] = f(xs,ys)
+            except:
+                print "Point not in mesh, skipping."
+                pass
+    return fa
+
+from shutil import copy, move
+from tempfile import mkstemp
+from os import close
+
+input_filename = data_filename
+output_filename = '_'.join([prefix, alpha_str, gamma_str]) + '.nc'
 
 ## mesh_out = RectangleMesh(np.float(xmin), np.float(ymin),
 ##                          np.float(xmax), np.float(ymax),
@@ -295,32 +316,52 @@ do.write_dictionary_of_files(data_out)
 ## func_space_out =  FunctionSpace(mesh_out, "CG", 1)
 ## func_space_dg_out =  FunctionSpace(mesh_out, "DG", 1)
 
-## print "Creating the temporary file..."
-## try:
-##     (handle, tmp_filename) = mkstemp()
-##     close(handle) # mkstemp returns a file handle (which we don't need)
-##     copy(input_filename, tmp_filename)
-## except IOError:
-##     print "ERROR: Can't create %s, Exiting..." % tmp_filename
+print "Creating the temporary file..."
+try:
+    (handle, tmp_filename) = mkstemp()
+    close(handle) # mkstemp returns a file handle (which we don't need)
+    copy(input_filename, tmp_filename)
+except IOError:
+    print "ERROR: Can't create %s, Exiting..." % tmp_filename
 
-## try:
-##     nc = CDF(tmp_filename, 'r')
-## except Exception, message:
-##    print message
-##    print "Note: %s was not modified." % output_filename
-##    exit(-1)
+try:
+    nc = CDF(tmp_filename, 'a')
+except Exception, message:
+   print message
+   print "Note: %s was not modified." % output_filename
+   exit(-1)
 
 
+def create_variable(var_name, f, long_name=None, standard_name=None, units=None, fill_value=None):
+    var = nc.createVariable(var_name, np.double, input_dimensions)
+    if long_name is not None:
+        var.long_name = long_name
+    if standard_name is not None:
+        var.standard_name = standard_name
+    if units is not None:
+        var.units = units
+    var.grid_mapping = "mapping"
+    if fill_value is not None:
+        var._FillValue = fill_value
+    var[:] = evaluate_regular_grid(f, x, y)
+
+
+
+create_variable("thk_mcb", project(H), long_name="land ice thickness from mass conservation", units="m")
+create_variable("delta_thk", project(H-H0), long_name="difference", units="m")
+create_variable("topg_mcb", project(S-H), long_name="bedrock surface elevation from mass conservation", standard_name="bedrock_altitude", units="m")
+create_variable("divHU_mcb", project(div(H*U)), long_name="flux divergence using mass conservation", units="m year-1")
+create_variable("divHU_in", project(div(Hin*U)), long_name="flux divergence observed", units="m year-1")
 
 ## H_out = interpolate(H, func_space_out)
 ## H_box = scitools.BoxField.dolfin_function2BoxField(H_out, mesh_out, (M,N))
 ## H_values = H_box.values
 
 
-## nc.close()
+nc.close()
 
-## try:
-##     move(tmp_filename, output_filename)
-## except:
-##     print "Error moving %s to %s. Exiting..." % (tmp_filename,
-##                                                  output_filename)
+try:
+    move(tmp_filename, output_filename)
+except:
+    print "Error moving %s to %s. Exiting..." % (tmp_filename,
+                                                 output_filename)
