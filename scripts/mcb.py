@@ -14,15 +14,15 @@ class DataOutput:
         else:
             self.directory = directory+'/'
             
-    def write_dictionary_of_files(self,d,extension='.pvd'):
+    def write_dictionary_of_files(self,d,extension='pvd'):
         """ Looking for a dictionary d of data to save. The keys are the file 
         names, and the values are the data fields to be stored. Also takes an
         optional extension to determine if it is pvd or xml output."""
         for filename in d:
-            file_handle = File(self.directory+filename+extension)
+            file_handle = File(self.directory+filename+'.'+extension)
             file_handle<<d[filename]
-    def write_one_file(self,name,data,extension='.pvd'):
-        file_handle = File(self.directory+name+extension)
+    def write_one_file(self,name,data,extension='pvd'):
+        file_handle = File(self.directory+name+'.'+extension)
         file_handle<<data
 
 
@@ -263,8 +263,8 @@ prefix, suffix = data_filename.split('.')
 prefix = str(prefix)
 gamma_str = '_'.join(['gamma', str(gamma)])
 alpha_str = '_'.join(['alpha', str(alpha)])
-do = DataOutput('./')
 
+do = DataOutput('./')
 data_out = {'_'.join([prefix, alpha_str, gamma_str, 'mcb_bed']) : project(S-H),
             '_'.join([prefix, alpha_str, gamma_str, 'cresis_bed']) : project(S-Hin),
             '_'.join([prefix, alpha_str, gamma_str, 'cresis_flux_div_obs']) : project(div(U*Hin)),
