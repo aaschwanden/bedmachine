@@ -8,11 +8,11 @@ Model implementation in FEniCS/dolfin (http://fenicsproject.org/) by Jesse Johns
 
 To get the data, run
 
-``$ sh prepare_jakobshavn.sh N ``
-``$ sh prepare_79n.sh N ``
+``$ sh prepare_jakobshavn.sh N``
+``$ sh prepare_79n.sh N``
 
 and then run the model:
 
-``$ mpirun -np N python scripts/mcb.py ``
+``$ mpirun -np N python scripts/mcb.py``
 
 where N is the number of cores
