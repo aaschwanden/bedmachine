@@ -10,7 +10,7 @@
 
 set -x -e
 
-# run ./prepare_jakobshavn.sh 1 if you havent CDO compiled with OpenMP
+# run ./prepare.sh 1 if you havent CDO compiled with OpenMP
 NN=8  # default number of processors
 if [ $# -gt 0 ] ; then
   NN="$1"
@@ -24,17 +24,32 @@ fi
 
 
 # corners of lon,lat box for query
-minlon=-51
-maxlon=-42
-minlat=68.25
-maxlat=70
+LON_MIN=-51
+LON_MAX=-42
+LAT_MIN=68.25
+LAT_MAX=70
 
-mod_val=1
-mod_field='gid'
+MOD_VAL=1
+MOD_FIELD='gid'
 
-epsg_code_out=3413
+EPSG=3413
 
-filename=jak_basin
+PROJECT=jakobshavn
+PROJECTC=Jakobshavn
+YEARA=2006
+YEARE=2012
+CRESIS_YEARS=${YEARA}_${YEARE}
+
+# destination area in EPSG:3413 coordinates
+X_MIN=-230000.0
+X_MAX=80000.0
+Y_MIN=-2350000.0
+Y_MAX=-2200000.0
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# below here, everything should be general.
+
+FL_FILE_TXT=${PROJECT}_flighlines.txt
 
 # Well this takes a while...
 # But we leave it at that for now. In the longer run, we need a python 
@@ -42,100 +57,109 @@ filename=jak_basin
 # than ASCII.
 # TODO:
 # -9999 is the missing value. That should be dealt with in a smarter way.
-# python scripts/general_query.py -table cresis_gr -fields "wgs84surf,wgs84bed" -epsg $epsg_code_out -and_clause "wgs84bed>-9999" -box $minlon $maxlon $minlat $maxlat  -mod_val $mod_val -mod_field gid > ${filename}.txt
 
+python scripts/general_query.py -table cresis_gr -fields "wgs84surf,wgs84bed" -epsg $EPSG -and_clause "wgs84bed>-9999" -box $LON_MIN $LON_MAX $LAT_MIN $LAT_MAX  -mod_val $MOD_VAL -mod_field $MOD_FIELD > $FL_FILE_TXT
 
-# destination area in EPSG:3413 coordinates
-xmin=-230000.0
-xmax=80000.0
-ymin=-2350000.0
-ymax=-2200000.0
-python scripts/preprocess.py -g $GS --bounds $xmin $xmax $ymin $ymax -n $NN ${filename}.txt tmp_${filename}_${GS}m.nc
+FL_FILE_NC=${PROJECT}_flighlines_${GS}m.nc
+python scripts/preprocess.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
+
 # nc2cdo.py is from pism/util/
 # it adds lat/lon, but also the 4 grid corners of each cell, needed for
 # conservative remapping via CDO.
-#fill_missing.py -e 100 -v thk -f tmp_${filename}.nc -o ${filename}.nc
-cdo setmisstoc,-9999. -selvar,thk tmp_${filename}_${GS}m.nc ${filename}_${GS}m.nc
-ncatted -a _FillValue,,d,, ${filename}_${GS}m.nc
-ncks -A -v thk -x tmp_${filename}_${GS}m.nc ${filename}_${GS}m.nc
-nc2cdo.py ${filename}_${GS}m.nc
+
+# TODO figure out if we really need this.
+cdo setmisstoc,-9999. -selvar,thk tmp_$FL_FILE_NC $FL_FILE_NC
+ncatted -a _FillValue,,d,, $FL_FILE_NC
+ncks -A -v thk -x tmp_$FL_FILE_NC $FL_FILE_NC
+nc2cdo.py $FL_FILE_NC
 
 
-WARPOPTIONS="-overwrite -multi -r bilinear -te $xmin $ymin $xmax $ymax -tr $GS $GS -t_srs EPSG:$epsg_code_out"
+WARPOPTIONS="-overwrite -multi -r bilinear -te $X_MIN $Y_MIN $X_MAX $Y_MAX -tr $GS $GS -t_srs EPSG:$EPSG"
+
 
 # CReSIS data set
-CRESIS=Jakobshavn_2006_2012_Composite
-CRESISNC=cresis_thk_${GS}m.nc
-wget -nc --no-check-certificate https://data.cresis.ku.edu/data/grids/$CRESIS.zip
-unzip -o $CRESIS.zip
-gdalwarp $WARPOPTIONS -of netCDF $CRESIS/grids/jakobshavn_2006_2012_composite_thickness.txt tmp_$CRESISNC
-nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$CRESISNC
+CRESIS=${PROJECTC}_${CRESIS_YEARS}
+CRESIS_FILE_ZIP=${CRESIS}_Composite.zip
+CRESIS_FILE_NC=${PROJECT}_cresis_thk_${GS}m.nc
+wget -nc --no-check-certificate https://data.cresis.ku.edu/data/grids/$CRESIS_FILE_ZIP
+unzip -o $CRESIS_FILE_ZIP
+gdalwarp $WARPOPTIONS -of netCDF ${CRESIS}_Composite/grids/${PROJECT}_${CRESIS_YEARS}_composite_thickness.txt tmp_$CRESIS_FILE_NC
+nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$CRESIS_FILE_NC
 if [ [$NN == 1] ] ; then
-  REMAP_EXTRAPOLATE=on cdo remapbil,${filename}_${GS}m.nc tmp_$CRESISNC tmp2_$CRESISNC
+  REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC tmp_$CRESIS_FILE_NC tmp2_$CRESIS_FILE_NC
 else
-  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,${filename}_${GS}m.nc tmp_$CRESISNC tmp2_$CRESISNC
+  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC tmp_$CRESIS_FILE_NC tmp2_$CRESIS_FILE_NC
 fi
+ncks -A -v x,y,mapping $FL_FILE_NC tmp2_$CRESIS_FILE_NC
+ncatted -a grid_mapping,Band1,o,c,"mapping" tmp2_$CRESIS_FILE_NC
 
-cdo -O setmisstoc,-9999. tmp2_$CRESISNC $CRESISNC
-ncatted -a _FillValue,,d,, $CRESISNC
+cdo -O setmisstoc,-9999. tmp2_$CRESIS_FILE_NC $CRESIS_FILE_NC
+ncatted -a _FillValue,,d,, $CRESIS_FILE_NC
+ncks -A -v x,y,mapping $FL_FILE_NC $CRESIS_FILE_NC
+ncatted -a grid_mapping,Band1,o,c,"mapping" $CRESIS_FILE_NC
 
-ncks -A -v Band1 $CRESISNC ${filename}_${GS}m.nc
-ncatted -a _FillValue,,d,, ${filename}_${GS}m.nc
-ncap2 -O -s "where(thk==-9999.) thk=Band1;" ${filename}_${GS}m.nc ${filename}_${GS}m.nc
+ncks -A -v Band1 $CRESIS_FILE_NC $FL_FILE_NC
+ncatted -a _FillValue,,d,, $FL_FILE_NC
+ncap2 -O -s "where(thk==-9999.) thk=Band1;" $FL_FILE_NC $FL_FILE_NC
+
 # GIMP DEM
 GIMP=gimpdem_90m
+GIMP_FILE_NC=${PROJECT}_gimp_${GS}m.nc
 wget -nc ftp://ftp-bprc.mps.ohio-state.edu/downloads/gdg/gimpdem/$GIMP.tif.zip
 unzip -o $GIMP.tif.zip
-gdalwarp $WARPOPTIONS -of netCDF $GIMP.tif $GIMP.nc
-ncrename -v Band1,usurf $GIMP.nc
-nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' $GIMP.nc
+gdalwarp $WARPOPTIONS -of netCDF $GIMP.tif tmp_$GIMP_FILE_NC
+ncrename -v Band1,usurf tmp_$GIMP_FILE_NC
+nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$GIMP_FILE_NC
 if [ [$NN == 1] ] ; then
-  REMAP_EXTRAPOLATE=on cdo remapbil,${filename}_${GS}m.nc $GIMP.nc jak_${GIMP}_${GS}m.nc
+  REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC tmp_$GIMP_FILE_NC $GIMP_FILE_NC
 else
-  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,${filename}_${GS}m.nc $GIMP.nc jak_${GIMP}_${GS}m.nc
+  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC tmp_$GIMP_FILE_NC $GIMP_FILE_NC
 fi
+ncks -A -v x,y,mapping $FL_FILE_NC $GIMP_FILE_NC
+ncatted -a grid_mapping,usurf,o,c,"mapping"   $GIMP_FILE_NC
+
+echo "Fetching University of Montana 1km data set ... "
+UMT_FILE=Greenland1km.nc
+UMT_FILE_NC=${PROJECT}_umt_${GS}m.nc
+wget -nc http://websrv.cs.umt.edu/isis/images/a/ab/$UMT_FILE
+nc2cdo.py $UMT_FILE
+ncwa -O -a t $UMT_FILE tmp_$UMT_FILE
+if [ [$NN == 1] ] ; then
+  REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC -selvar,thk,topg tmp_$UMT_FILE $UMT_FILE_NC
+else
+  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC tmp_$UMT_FILE $UMT_FILE_NC
+fi
+ncks -A -v x,y,mapping $FL_FILE_NC $UMT_FILE_NC
+ncatted -a grid_mapping,thk,o,c,"mapping" -a grid_mapping,topg,o,c,"mapping"  $UMT_FILE_NC
 
 # get SeaRISE file; see page http://websrv.cs.umt.edu/isis/index.php/Present_Day_Greenland
-DATAVERSION=1.1
-DATAURL=http://websrv.cs.umt.edu/isis/images/a/a5/
-DATANAME=Greenland_5km_v$DATAVERSION.nc
+SR_FILE=Greenland_5km_v1.1.nc
+SR_FILE_NC=${PROJECT}_searise_v1.1_${GS}m.nc
 
 echo "Fetching SeaRISE master file ... "
-wget -nc ${DATAURL}${DATANAME}
+wget -nc http://websrv.cs.umt.edu/isis/images/a/a5/$SR_FILE
 echo "  ... done."
 echo
-nc2cdo.py $DATANAME
+nc2cdo.py $SR_FILE
 
 # Regrid SeaRISE onto local grid
-
-SEARISENAME=Greenland_5km_v${DATAVERSION}_small.nc
-cdo selvar,smb,topg $DATANAME $SEARISENAME
-OUTFILE=jak_input_v${DATAVERSION}_${GS}m.nc
+cdo selvar,smb,topg,thk $SR_FILE tmp_$SR_FILE
 if [ [$NN == 1] ] ; then
-  REMAP_EXTRAPOLATE=on cdo remapbil,${filename}_${GS}m.nc $SEARISENAME $OUTFILE
+  REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC tmp_$SR_FILE $SR_FILE_NC
 else
-  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,${filename}_${GS}m.nc $SEARISENAME $OUTFILE
+  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC tmp_$SR_FILE $SR_FILE_NC
 fi
-
-ncks -A -v usurf jak_${GIMP}_${GS}m.nc $OUTFILE
-ncks -A -v Band1 $CRESISNC $OUTFILE
-ncrename -v Band1,thk $OUTFILE
-
-# CDO drops x,y and mapping information. Re-add it.
-ncks -A -v x,y,mapping ${filename}_${GS}m.nc $OUTFILE
-# and re-add grid_mapping attribute
-ncatted -a grid_mapping,thk,o,c,"mapping" -a grid_mapping,topg,o,c,"mapping" -a grid_mapping,smb,o,c,"mapping" $OUTFILE
+ncks -A -v x,y,mapping $FL_FILE_NC $SR_FILE_NC
+ncatted -a grid_mapping,thk,o,c,"mapping" -a grid_mapping,topg,o,c,"mapping" -a grid_mapping,smb,o,c,"mapping" $SR_FILE_NC
 
 # remap surface velocities, select area frist to speed
 # things up a bit
-VELIN=surf_vels.nc
-VELOUT=jak_surf_vels_${GS}m.nc
+VELIN_FILE=surf_vels.nc
+VELOUT_FILE=${PROJECT}_surf_vels_${GS}m.nc
 if [ [$NN == 1] ] ; then
-  cdo remapbil,${filename}_${GS}m.nc -sellonlatbox,$minlon,$maxlon,$minlat,$maxlat $VELIN $VELOUT
+  cdo remapbil,$FL_FILE_NC -sellonlatbox,$LON_MIN,$LON_MAX,$LAT_MIN,$LAT_MAX $VELIN_FILE $VELOUT_FILE
 else
-  cdo -P $NN remapbil,${filename}_${GS}m.nc -sellonlatbox,$minlon,$maxlon,$minlat,$maxlat $VELIN $VELOUT
+  cdo -P $NN remapbil,$FL_FILE_NC  -sellonlatbox,$LON_MIN,$LON_MAX,$LAT_MIN,$LAT_MAX $VELIN_FILE $VELOUT_FILE
 fi
-# CDO drops x,y and mapping information. Re-add it.
-ncks -A -v x,y,mapping ${filename}_${GS}m.nc $VELOUT
-# and re-add grid_mapping attribute
-ncatted -a grid_mapping,us,o,c,"mapping" -a grid_mapping,vs,o,c,"mapping" -a grid_mapping,magnitude,o,c,"mapping" $VELOUT
+ncks -A -v x,y,mapping $FL_FILE_NC $VELOUT_FILE
+ncatted -a grid_mapping,us,o,c,"mapping" -a grid_mapping,vs,o,c,"mapping" -a grid_mapping,magnitude,o,c,"mapping" $VELOUT_FILE
