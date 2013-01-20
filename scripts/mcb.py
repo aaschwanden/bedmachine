@@ -33,6 +33,19 @@ class DataOutput:
         file_handle<<data
 
 
+def create_variable(var_name, f, long_name=None, standard_name=None, units=None, fill_value=None):
+    var = nc.createVariable(var_name, np.double, input_dimensions)
+    if long_name is not None:
+        var.long_name = long_name
+    if standard_name is not None:
+        var.standard_name = standard_name
+    if units is not None:
+        var.units = units
+    var.grid_mapping = "mapping"
+    if fill_value is not None:
+        var._FillValue = fill_value
+    var[:] = evaluate_regular_grid(f, x, y)
+
 
 def generate_expression_from_gridded_data(x, y, var, method='bil'):
     from scipy.interpolate import RectBivariateSpline
@@ -135,8 +148,7 @@ def permute(variable, output_order=('time', 'z', 'zb', 'y', 'x')):
 # Set up the option parser
 parser = ArgumentParser()
 parser.description = '''A script to preprocess ice thickness data.'''
-parser.add_argument("FILE", nargs='*')
-parser.add_argument("-s","--scale_factor", dest="scale_factor",
+parser.add_argument("-f","--scale_factor", dest="scale_factor",
                     type=float,
                     help='''Scale the element size Values<1 mean a coarser mesh. Default=1''',
                     default=1.)
@@ -146,21 +158,17 @@ parser.add_argument("-a","--alpha", dest="alpha", type=float,
 parser.add_argument("-g","--gamma", dest="gamma", type=float,
                     help='''Misfit penalty''',
                     default=2.0)
-parser.add_argument("-i","--in_file", dest="data_filename",
-                    help='''File containing target thickness and density''',
-                    default='jak_basin.nc')
-parser.add_argument("-v","--velocity_file", dest="vel_filename",
-                    help='''File containing x,y components of surface velocity''',
-                    default='jak_surface_vels.nc')
-parser.add_argument("-b","--bc_file", dest="bc_filename",
-                    help='''File containing ice surface, and other boundary conditions.''',
-                    default='jak_input_v1.1..nc')
+parser.add_argument("--grid_spacing", dest="grid_spacing", type=int,
+                    help='''Grid spacing in meters.''',
+                    default=500)
+parser.add_argument("-p","--project", dest="project_name",
+                    help='''Name of the project which determines filenames together with grid size.''',
+                    default='jakobshavn')
 options = parser.parse_args()
 scale_factor = options.scale_factor
 parameters['allow_extrapolation'] = True
-data_filename = options.data_filename
-vel_filename = options.vel_filename
-bc_filename = options.bc_filename
+project_name = options.project_name
+grid_spacing = options.grid_spacing
 # Misfit penalty.  Penalized differences between the calculated and observed thickness.
 gamma = options.gamma
 # Regularization parameter (penalty on the gradient of the solution)
@@ -168,42 +176,66 @@ alpha = options.alpha
 
 # minimum ice thickness
 thk_min = 10
+
 output_order = ("x", "y")
-
-
-nc_data = CDF(data_filename, 'r')
-xdim, ydim, zdim, tdim = get_dims(nc_data)
-x = nc_data.variables[xdim][:]
-y = nc_data.variables[ydim][:]
-input_dimensions = nc_data.variables["thk"].dimensions
-rho = np.squeeze(permute(nc_data.variables["rho"], output_order=output_order))
-Hfl = np.squeeze(permute(nc_data.variables["thk"], output_order=output_order))
+filename = project_name + '_flighlines_' + str(grid_spacing) + 'm.nc'
+nc = CDF(filename, 'r')
+xdim, ydim, zdim, tdim = get_dims(nc)
+x = nc.variables[xdim][:]
+y = nc.variables[ydim][:]
+proj4_str = nc.projection
+input_dimensions = nc.variables["thk"].dimensions
+rho = np.squeeze(permute(nc.variables["rho"], output_order=output_order))
+Hfl = np.squeeze(permute(nc.variables["thk"], output_order=output_order))
 M = len(x)
 xmin = x[0]
 xmax = x[-1]
 N = len(y)
 ymin = y[0]
 ymax = y[-1]
-nc_data.close()
+nc.close()
 
-nc_vel = CDF(vel_filename, 'r')
-xdim, ydim, zdim, tdim = get_dims(nc_vel)
-uvel = np.squeeze(permute(nc_vel.variables["us"], output_order=output_order))
-uvel_fill = nc_vel.variables["us"]._FillValue
+output_order = ("x", "y")
+filename = project_name + '_surf_vels_' + str(grid_spacing) + 'm.nc'
+nc = CDF(filename, 'r')
+xdim, ydim, zdim, tdim = get_dims(nc)
+uvel = np.squeeze(permute(nc.variables["us"], output_order=output_order))
+uvel_fill = nc.variables["us"]._FillValue
 uvel[uvel.data==uvel_fill] = 0.
-vvel = np.squeeze(permute(nc_vel.variables["vs"], output_order=output_order))
-vvel_fill = nc_vel.variables["vs"]._FillValue
+vvel = np.squeeze(permute(nc.variables["vs"], output_order=output_order))
+vvel_fill = nc.variables["vs"]._FillValue
 vvel[vvel.data==vvel_fill] = 0.
-nc_vel.close()
+nc.close()
+
+output_order = ("x", "y")
+filename = project_name + '_umt_' + str(grid_spacing) + 'm.nc'
+nc = CDF(filename, 'r')
+xdim, ydim, zdim, tdim = get_dims(nc)
+Humt = np.squeeze(permute(nc.variables["thk"], output_order=output_order))
+nc.close()
+
+output_order = ("x", "y")
+filename = project_name + '_cresis_thk_' + str(grid_spacing) + 'm.nc'
+nc = CDF(filename, 'r')
+xdim, ydim, zdim, tdim = get_dims(nc)
+Hcresis = np.squeeze(permute(nc.variables["thk"], output_order=output_order))
+nc.close()
 
 output_order = ("time", "x", "y")
-nc_bc = CDF(bc_filename, 'r')
-xdim, ydim, zdim, tdim = get_dims(nc_bc)
-Hobs = np.squeeze(permute(nc_bc.variables["thk"], output_order=output_order))
-Hobs[Hobs<thk_min] = thk_min
-S = np.squeeze(permute(nc_bc.variables["usurf"], output_order=output_order))
-smb = np.squeeze(permute(nc_bc.variables["smb"], output_order=output_order))
-nc_bc.close()
+filename = project_name + '_searise_v1.1_' + str(grid_spacing) + 'm.nc'
+nc = CDF(filename, 'r')
+xdim, ydim, zdim, tdim = get_dims(nc)
+Hsr = np.squeeze(permute(nc.variables["thk"], output_order=output_order))
+smb = np.squeeze(permute(nc.variables["smb"], output_order=output_order))
+nc.close()
+
+
+output_order = ("x", "y")
+filename = project_name + '_gimp_' + str(grid_spacing) + 'm.nc'
+nc = CDF(filename, 'r')
+xdim, ydim, zdim, tdim = get_dims(nc)
+S = np.squeeze(permute(nc.variables["usurf"], output_order=output_order))
+nc.close()
 
 set_log_level(PROGRESS)
 
@@ -221,12 +253,15 @@ mesh = RectangleMesh(np.float(xmin) - extend, np.float(ymin - extend),
 func_space =  FunctionSpace(mesh, "CG", 1)
 func_space_dg =  FunctionSpace(mesh, "DG", 1)
 
-Hin = project(generate_expression_from_gridded_data(x, y, Hobs), func_space)
-H0 = project(generate_expression_from_gridded_data(x, y, Hfl), func_space)
-S = project(generate_expression_from_gridded_data(x, y, S), func_space)
-adot = project(generate_expression_from_gridded_data(x, y, smb), func_space)
-rho_d = project(generate_expression_from_gridded_data(x, y, rho, method="nearest"),
+H0_p = project(generate_expression_from_gridded_data(x, y, Hfl), func_space)
+S_p = project(generate_expression_from_gridded_data(x, y, S), func_space)
+smb_p = project(generate_expression_from_gridded_data(x, y, smb), func_space)
+rho_p = project(generate_expression_from_gridded_data(x, y, rho, method="nearest"),
                 func_space_dg)
+Hcresis_p = project(generate_expression_from_gridded_data(x, y, Hcresis), func_space)
+Hsr_p = project(generate_expression_from_gridded_data(x, y, Hsr), func_space)
+Humt_p = project(generate_expression_from_gridded_data(x, y, Humt), func_space)
+
 u_o = project(generate_expression_from_gridded_data(x, y, uvel), func_space)
 v_o = project(generate_expression_from_gridded_data(x, y, vvel), func_space)
 
@@ -235,8 +270,8 @@ U = as_vector([u_o,v_o])  # unsmoothed
 Unorm = project(sqrt(dot(U,U)) + 1e-10)
 
 # Steepest descents velocities (if needed)
-u_s = project(-S.dx(0) * Unorm)
-v_s = project(-S.dx(1) * Unorm)
+u_s = project(-S_p.dx(0) * Unorm)
+v_s = project(-S_p.dx(1) * Unorm)
 
 # Ignore slow regions of ice.
 utol = 5.0
@@ -247,7 +282,7 @@ def inside(x, on_boundary):
                        (x[0] < DOLFIN_EPS or x[1] < DOLFIN_EPS or \
                        (x[0] > 0.5 - DOLFIN_EPS and x[1] > 0.5 - DOLFIN_EPS)))
 
-dbc = DirichletBC(func_space, Hin, inside)
+dbc = DirichletBC(func_space, Hcresis_p, inside)
 
 # Solution and Trial function
 H = Function(func_space)
@@ -257,8 +292,8 @@ dH = TrialFunction(func_space)
 phi = TestFunction(func_space)
 
 # Objective function
-I = (div(U*H) - adot)**2*dx \
-    + gamma*rho_d*0.5*(H-H0)**2*dx \
+I = (div(U*H) - smb_p)**2*dx \
+    + gamma*rho_p*0.5*(H-H0_p)**2*dx \
     + alpha*(H.dx(0)**2 + H.dx(1)**2)*dx
 
 delta_I = derivative(I, H, phi)
@@ -267,25 +302,24 @@ J = derivative(delta_I, H, dH)
 
 solve(delta_I==0, H, dbc, J=J)
 
-prefix, suffix = data_filename.split('.')
-# Dolfin file handler doesn't like unicode
-prefix = str(prefix)
 gamma_str = '_'.join(['gamma', str(gamma)])
 alpha_str = '_'.join(['alpha', str(alpha)])
 
 do = DataOutput('./')
-data_out = {'_'.join([prefix, alpha_str, gamma_str, 'mcb_bed']) : project(S-H),
-            '_'.join([prefix, alpha_str, gamma_str, 'cresis_bed']) : project(S-Hin),
-            '_'.join([prefix, alpha_str, gamma_str, 'cresis_flux_div_obs']) : project(div(U*Hin)),
-            '_'.join([prefix, alpha_str, gamma_str, 'mcb_flux_div']) : project(div(U*H)),
-            '_'.join([prefix, alpha_str, gamma_str, 'U']) : Unorm,
-            '_'.join([prefix, alpha_str, gamma_str, 'rho_d']) : rho_d,
-            '_'.join([prefix, alpha_str, gamma_str, 'adot']) : adot,
-            '_'.join([prefix, alpha_str, gamma_str, 'S']) : S,
-            '_'.join([prefix, alpha_str, gamma_str, 'H0']) : H0,
-            '_'.join([prefix, alpha_str, gamma_str, 'thk']) : H,
-            '_'.join([prefix, alpha_str, gamma_str, 'delta_H'])  : project(H-H0),
-            '_'.join([prefix, alpha_str, gamma_str, 'delta_H_obs'])  : project(H-Hin)
+data_out = {'_'.join([project_name, alpha_str, gamma_str, 'mcb_bed']) : project(S_p-H),
+            '_'.join([project_name, alpha_str, gamma_str, 'mcb_flux_div']) : project(div(U*H)),
+            '_'.join([project_name, alpha_str, gamma_str, 'cresis_bed']) : project(S_p-Hcresis_p),
+            '_'.join([project_name, alpha_str, gamma_str, 'cresis_flux_div_obs']) : project(div(U*Hcresis_p)),
+            '_'.join([project_name, alpha_str, gamma_str, 'umt_bed']) : project(S_p-Humt_p),
+            '_'.join([project_name, alpha_str, gamma_str, 'umt_flux_div_obs']) : project(div(U*Humt_p)),
+            '_'.join([project_name, alpha_str, gamma_str, 'searise_bed']) : project(S_p-Hsr_p),
+            '_'.join([project_name, alpha_str, gamma_str, 'searise_flux_div_obs']) : project(div(U*Hsr_p)),
+            '_'.join([project_name, alpha_str, gamma_str, 'U']) : Unorm,
+            '_'.join([project_name, alpha_str, gamma_str, 'rho']) : rho_p,
+            '_'.join([project_name, alpha_str, gamma_str, 'smb']) : smb_p,
+            '_'.join([project_name, alpha_str, gamma_str, 'S']) : S_p,
+            '_'.join([project_name, alpha_str, gamma_str, 'H0']) : H0_p,
+            '_'.join([project_name, alpha_str, gamma_str, 'thk']) : H,
             }
 do.write_dictionary_of_files(data_out)
 
@@ -302,12 +336,8 @@ def evaluate_regular_grid(f, x, y):
                 pass
     return fa
 
-from shutil import copy, move
-from tempfile import mkstemp
-from os import close
 
-input_filename = data_filename
-output_filename = '_'.join([prefix, alpha_str, gamma_str]) + '.nc'
+output_filename = '_'.join([project_name, alpha_str, gamma_str]) + '.nc'
 
 ## mesh_out = RectangleMesh(np.float(xmin), np.float(ymin),
 ##                          np.float(xmax), np.float(ymax),
@@ -316,52 +346,73 @@ output_filename = '_'.join([prefix, alpha_str, gamma_str]) + '.nc'
 ## func_space_out =  FunctionSpace(mesh_out, "CG", 1)
 ## func_space_dg_out =  FunctionSpace(mesh_out, "DG", 1)
 
-print "Creating the temporary file..."
-try:
-    (handle, tmp_filename) = mkstemp()
-    close(handle) # mkstemp returns a file handle (which we don't need)
-    copy(input_filename, tmp_filename)
-except IOError:
-    print "ERROR: Can't create %s, Exiting..." % tmp_filename
+print "Creating output file..."
 
-try:
-    nc = CDF(tmp_filename, 'a')
-except Exception, message:
-   print message
-   print "Note: %s was not modified." % output_filename
-   exit(-1)
+nc = CDF(output_filename, 'w')
+
+nc.createDimension("y", size=y.shape[0])
+nc.createDimension("x", size=x.shape[0])
+x_var = nc.createVariable("x", 'f', dimensions=("x",))
+x_var.units = "m";
+x_var.long_name = "easting"
+x_var.standard_name = "projection_x_coordinate"
+x_var[:] = x
+
+y_var = nc.createVariable("y", 'f', dimensions=("y",))
+y_var.units = "m";
+y_var.long_name = "northing"
+y_var.standard_name = "projection_y_coordinate"
+y_var[:] = y
+
+mapping_var = 'mapping'
+mapping = nc.createVariable(mapping_var, 'b')
+mapping.grid_mapping_name = "polar_stereographic"
+mapping.latitude_of_projection_origin = 90.
+mapping.straight_vertical_longitude_from_pole = -45.0
+mapping.standard_parallel = 70.0
+mapping.false_easting = 0.
+mapping.false_northing = 0.
+mapping.Northernmost_Northing = ymax
+mapping.Southernmost_Northing = ymin
+mapping.Easternmost_Easting = xmax
+mapping.Westernmost_Easting = xmin
+mapping.units = "m"
+
+create_variable("thk", project(H),
+                long_name="land ice thickness from mass conservation",
+                standard_name="land_ice_thickness",
+                units="m")
+create_variable("topg", project(S_p-H),
+                long_name="bedrock surface elevation from mass conservation",
+                standard_name="bedrock_altitude",
+                units="m")
+create_variable("divHU", project(div(H*U)),
+                long_name="flux divergence using mass conservation",
+                units="m year-1")
+create_variable("divHU_cresis", project(div(Hcresis_p*U)), long_name="flux divergence cresis",
+                units="m year-1")
+create_variable("divHU_umt", project(div(Humt_p*U)), long_name="flux divergence UMT",
+                units="m year-1")
+create_variable("divHU_searise", project(div(Hsr_p*U)), long_name="flux divergence SeaRISE",
+                units="m year-1")
 
 
-def create_variable(var_name, f, long_name=None, standard_name=None, units=None, fill_value=None):
-    var = nc.createVariable(var_name, np.double, input_dimensions)
-    if long_name is not None:
-        var.long_name = long_name
-    if standard_name is not None:
-        var.standard_name = standard_name
-    if units is not None:
-        var.units = units
-    var.grid_mapping = "mapping"
-    if fill_value is not None:
-        var._FillValue = fill_value
-    var[:] = evaluate_regular_grid(f, x, y)
+# Save the projection information:
+nc.projection = proj4_str
 
+nc.Conventions = "CF-1.5"
 
+# writing global attributes
+## import time
+## script_command = ' '.join([time.ctime(), ':', __file__.split('/')[-1],
+##                            ' '.join([str(l) for l in args])])
+## nc.history = script_command
 
-create_variable("thk_mcb", project(H), long_name="land ice thickness from mass conservation", units="m")
-create_variable("delta_thk", project(H-H0), long_name="difference", units="m")
-create_variable("topg_mcb", project(S-H), long_name="bedrock surface elevation from mass conservation", standard_name="bedrock_altitude", units="m")
-create_variable("divHU_mcb", project(div(H*U)), long_name="flux divergence using mass conservation", units="m year-1")
-create_variable("divHU_in", project(div(Hin*U)), long_name="flux divergence observed", units="m year-1")
+print "writing to %s ...\n" % output_filename
+print "run nc2cdo.py to add lat/lon variables" 
+nc.close()
+
 
 ## H_out = interpolate(H, func_space_out)
 ## H_box = scitools.BoxField.dolfin_function2BoxField(H_out, mesh_out, (M,N))
 ## H_values = H_box.values
-
-
-nc.close()
-
-try:
-    move(tmp_filename, output_filename)
-except:
-    print "Error moving %s to %s. Exiting..." % (tmp_filename,
-                                                 output_filename)
