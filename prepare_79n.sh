@@ -102,6 +102,8 @@ ncks -A -v Band1 $CRESIS_FILE_NC $FL_FILE_NC
 ncatted -a _FillValue,,d,, $FL_FILE_NC
 ncap2 -O -s "where(thk==-9999.) thk=Band1;" $FL_FILE_NC $FL_FILE_NC
 
+ncrename -O -v Band1,thk $CRESIS_FILE_NC $CRESIS_FILE_NC
+
 # GIMP DEM
 GIMP=gimpdem_90m
 GIMP_FILE_NC=${PROJECT}_gimp_${GS}m.nc
