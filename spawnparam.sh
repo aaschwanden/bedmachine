@@ -53,8 +53,7 @@ do
 
   for alpha in 0 1 2
   do
-#      for project in "jakobshavn" "79N"
-      for project in "helheim"
+      for project in "jakobshavn" "79N" "helheim"
       do
       SCRIPT="do_${alpha}_${gamma}_${project}.sh"
       rm -f $SCRIPT
