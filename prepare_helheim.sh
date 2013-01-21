@@ -58,10 +58,10 @@ FL_FILE_TXT=${PROJECT}_flighlines.txt
 # TODO:
 # -9999 is the missing value. That should be dealt with in a smarter way.
 
-python scripts/general_query.py -table cresis_gr -fields "wgs84surf,wgs84bed" -epsg $EPSG -and_clause "wgs84bed>-9999" -box $LON_MIN $LON_MAX $LAT_MIN $LAT_MAX  -mod_val $MOD_VAL -mod_field $MOD_FIELD > $FL_FILE_TXT
+#python scripts/general_query.py -table cresis_gr -fields "wgs84surf,wgs84bed" -epsg $EPSG -and_clause "wgs84bed>-9999" -box $LON_MIN $LON_MAX $LAT_MIN $LAT_MAX  -mod_val $MOD_VAL -mod_field $MOD_FIELD > $FL_FILE_TXT
 
 FL_FILE_NC=${PROJECT}_flighlines_${GS}m.nc
-python scripts/preprocess.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
+#python scripts/preprocess.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
 
 # nc2cdo.py is from pism/util/
 # it adds lat/lon, but also the 4 grid corners of each cell, needed for
@@ -80,10 +80,18 @@ WARPOPTIONS="-overwrite -multi -r bilinear -te $X_MIN $Y_MIN $X_MAX $Y_MAX -tr $
 # CReSIS data set
 CRESIS=${PROJECTC}_${CRESIS_YEARS}
 CRESIS_FILE_ZIP=${CRESIS}_Composite.zip
-CRESIS_FILE_NC=${PROJECT}_cresis_thk_${GS}m.nc
+CRESIS_FILE_NC=${PROJECT}_cresis_${GS}m.nc
 wget -nc --no-check-certificate https://data.cresis.ku.edu/data/grids/$CRESIS_FILE_ZIP
 unzip -o $CRESIS_FILE_ZIP
-gdalwarp $WARPOPTIONS -of netCDF ${CRESIS}_Composite/grids/${PROJECT}_${CRESIS_YEARS}_composite_thickness.txt tmp_$CRESIS_FILE_NC
+gdalwarp $WARPOPTIONS -of netCDF ${CRESIS}_Composite/grids/${PROJECT}_${CRESIS_YEARS}_composite_thickness.txt thk_$CRESIS_FILE_NC
+gdalwarp $WARPOPTIONS -of netCDF ${CRESIS}_Composite/grids/${PROJECT}_${CRESIS_YEARS}_composite_surface.txt usurf_$CRESIS_FILE_NC
+ncrename -O -v Band1,usurf usurf_$CRESIS_FILE_NC
+gdalwarp $WARPOPTIONS -of netCDF ${CRESIS}_Composite/grids/${PROJECT}_${CRESIS_YEARS}_composite_bottom.txt topg_$CRESIS_FILE_NC
+ncrename -O -v Band1,topg topg_$CRESIS_FILE_NC
+nccopy thk_$CRESIS_FILE_NC tmp_$CRESIS_FILE_NC
+ncks -A usurf_$CRESIS_FILE_NC tmp_$CRESIS_FILE_NC
+ncks -A topg_$CRESIS_FILE_NC tmp_$CRESIS_FILE_NC
+ncatted -a units,Band1,o,c,"m" -a units,topg,o,c,"m" -a units,usurf,o,c,"m" tmp_$CRESIS_FILE_NC
 nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$CRESIS_FILE_NC
 if [ [$NN == 1] ] ; then
   REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC tmp_$CRESIS_FILE_NC tmp2_$CRESIS_FILE_NC
@@ -132,7 +140,8 @@ else
   REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC tmp_$UMT_FILE $UMT_FILE_NC
 fi
 ncks -A -v x,y,mapping $FL_FILE_NC $UMT_FILE_NC
-ncatted -a grid_mapping,thk,o,c,"mapping" -a grid_mapping,topg,o,c,"mapping"  $UMT_FILE_NC
+ncatted -a grid_mapping,thk,o,c,"mapping" -a grid_mapping,topg,o,c,"mapping" $UMT_FILE_NC
+nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' $UMT_FILE_NC
 
 # get SeaRISE file; see page http://websrv.cs.umt.edu/isis/index.php/Present_Day_Greenland
 SR_FILE=Greenland_5km_v1.1.nc
@@ -153,6 +162,7 @@ else
 fi
 ncks -A -v x,y,mapping $FL_FILE_NC $SR_FILE_NC
 ncatted -a grid_mapping,thk,o,c,"mapping" -a grid_mapping,topg,o,c,"mapping" -a grid_mapping,smb,o,c,"mapping" $SR_FILE_NC
+nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' $SR_FILE_NC
 
 # remap surface velocities, select area frist to speed
 # things up a bit
