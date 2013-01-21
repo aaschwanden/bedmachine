@@ -215,7 +215,7 @@ Humt = np.squeeze(permute(nc.variables["thk"], output_order=output_order))
 nc.close()
 
 output_order = ("x", "y")
-filename = project_name + '_cresis_thk_' + str(grid_spacing) + 'm.nc'
+filename = project_name + '_cresis_' + str(grid_spacing) + 'm.nc'
 nc = CDF(filename, 'r')
 xdim, ydim, zdim, tdim = get_dims(nc)
 Hcresis = np.squeeze(permute(nc.variables["thk"], output_order=output_order))
@@ -304,22 +304,23 @@ solve(delta_I==0, H, dbc, J=J)
 
 gamma_str = '_'.join(['gamma', str(gamma)])
 alpha_str = '_'.join(['alpha', str(alpha)])
+gs_str = str(grid_spacing) + 'm'
 
 do = DataOutput('./')
-data_out = {'_'.join([project_name, alpha_str, gamma_str, 'mcb_bed']) : project(S_p-H),
-            '_'.join([project_name, alpha_str, gamma_str, 'mcb_flux_div']) : project(div(U*H)),
-            '_'.join([project_name, alpha_str, gamma_str, 'cresis_bed']) : project(S_p-Hcresis_p),
-            '_'.join([project_name, alpha_str, gamma_str, 'cresis_flux_div_obs']) : project(div(U*Hcresis_p)),
-            '_'.join([project_name, alpha_str, gamma_str, 'umt_bed']) : project(S_p-Humt_p),
-            '_'.join([project_name, alpha_str, gamma_str, 'umt_flux_div_obs']) : project(div(U*Humt_p)),
-            '_'.join([project_name, alpha_str, gamma_str, 'searise_bed']) : project(S_p-Hsr_p),
-            '_'.join([project_name, alpha_str, gamma_str, 'searise_flux_div_obs']) : project(div(U*Hsr_p)),
-            '_'.join([project_name, alpha_str, gamma_str, 'U']) : Unorm,
-            '_'.join([project_name, alpha_str, gamma_str, 'rho']) : rho_p,
-            '_'.join([project_name, alpha_str, gamma_str, 'smb']) : smb_p,
-            '_'.join([project_name, alpha_str, gamma_str, 'S']) : S_p,
-            '_'.join([project_name, alpha_str, gamma_str, 'H0']) : H0_p,
-            '_'.join([project_name, alpha_str, gamma_str, 'thk']) : H,
+data_out = {'_'.join([project_name, gs_str, alpha_str, gamma_str, 'mcb_bed']) : project(S_p-H),
+            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'mcb_flux_div']) : project(div(U*H)),
+            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'cresis_bed']) : project(S_p-Hcresis_p),
+            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'cresis_flux_div_obs']) : project(div(U*Hcresis_p)),
+            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'umt_bed']) : project(S_p-Humt_p),
+            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'umt_flux_div_obs']) : project(div(U*Humt_p)),
+            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'searise_bed']) : project(S_p-Hsr_p),
+            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'searise_flux_div_obs']) : project(div(U*Hsr_p)),
+            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'U']) : Unorm,
+            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'rho']) : rho_p,
+            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'smb']) : smb_p,
+            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'S']) : S_p,
+            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'H0']) : H0_p,
+            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'thk']) : H,
             }
 do.write_dictionary_of_files(data_out)
 
@@ -337,7 +338,7 @@ def evaluate_regular_grid(f, x, y):
     return fa
 
 
-output_filename = '_'.join([project_name, alpha_str, gamma_str]) + '.nc'
+output_filename = '_'.join([project_name, gs_str, alpha_str, gamma_str]) + '.nc'
 
 ## mesh_out = RectangleMesh(np.float(xmin), np.float(ymin),
 ##                          np.float(xmax), np.float(ymax),
