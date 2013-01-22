@@ -167,7 +167,7 @@ parser.add_argument("-p","--project", dest="project_name",
 options = parser.parse_args()
 scale_factor = options.scale_factor
 parameters['allow_extrapolation'] = True
-project_name = options.project_name
+project_name = str(options.project_name)
 grid_spacing = options.grid_spacing
 # Misfit penalty.  Penalized differences between the calculated and observed thickness.
 gamma = options.gamma
@@ -308,7 +308,8 @@ import os
 if not os.path.exists(project_name):
     os.makedirs(project_name)
 
-do = DataOutput(project_name + '/')
+out_dir = project_name + '/'
+do = DataOutput(out_dir)
 data_out = {'_'.join([project_name, gs_str, alpha_str, gamma_str, 'mcb_bed']) : project(S_p-H),
             '_'.join([project_name, gs_str, alpha_str, gamma_str, 'mcb_flux_div']) : project(div(U*H)),
             '_'.join([project_name, gs_str, alpha_str, gamma_str, 'cresis_bed']) : project(S_p-Hcresis_p),
@@ -352,7 +353,7 @@ output_filename = '_'.join([project_name, gs_str, alpha_str, gamma_str]) + '.nc'
 
 print "Creating output file..."
 
-nc = CDF('/'.join([project_name, output_filename], 'w')
+nc = CDF('/'.join([project_name, output_filename]), 'w')
 
 nc.createDimension("y", size=y.shape[0])
 nc.createDimension("x", size=x.shape[0])
@@ -399,6 +400,9 @@ create_variable("divHU_umt", project(div(Humt_p*U)), long_name="flux divergence 
                 units="m year-1")
 create_variable("divHU_searise", project(div(Hsr_p*U)), long_name="flux divergence SeaRISE",
                 units="m year-1")
+create_variable("divU", project(div(U)),
+                long_name="divergence of velocity field",
+                units="year-1")
 
 
 # Save the projection information:
@@ -414,14 +418,6 @@ nc.Conventions = "CF-1.5"
 
 print "writing to %s ...\n" % output_filename
 print "run nc2cdo.py to add lat/lon variables" 
-nc.close()
-
-# Write divergence of velocity field
-filename = project_name + '_surf_vels_' + str(grid_spacing) + 'm.nc'
-nc = CDF(filename, 'a')
-create_variable("divU", project(div(U)),
-                long_name="divergence of velocity field",
-                units="year-1")
 nc.close()
 
 ## H_out = interpolate(H, func_space_out)
