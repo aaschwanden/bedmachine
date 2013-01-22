@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 # Copyright (C) 2013 Andy Aschwanden
 #
-# Example:
-# python preprocess.py --bounds -241000 207000 -2384000 -2150000 jak_basin.txt
+# Example, using a 50m grid spacing and 8 cores:
+# python scripts/preprocess.py -g 500 \
+# --bounds -230000.0 80000.0 -2350000.0 -2200000.0 \
+# -n 8 jakobshavn_flightlines.txt tmp_flightlines_500m.nc
 # for the Jakobshavn basin, assuming the projection is EPSG:3413
 
 import numpy as np
@@ -42,7 +44,7 @@ miss_val = options.miss_val
 nprocs = options.nprocs
 fill_value = -2e-9
 # FIXME: how to choose this value?
-radius_of_influence = 500  # m
+radius_of_influence = grid_spacing  # m
 
 # read in data
 # we could make this more flexible by only reading lon, lat and then use
@@ -83,7 +85,9 @@ rho = np.ones_like(result)
 rho[result==fill_value] = 0
 
 # Make a quick plot
-pr.plot.save_quicklook('ice_thickness.png', area_def, result, label='ice thickness')
+fig_str = out_filename.split('.')[0]
+fig_name = fig_str + '.png'
+pr.plot.save_quicklook(fig_name, area_def, result, label='ice thickness')
 
 # Write the data:
 nc = CDF(out_filename, "w", format="NETCDF3_CLASSIC")

@@ -246,9 +246,7 @@ x_scaled = np.linspace(xmin - extend, xmax + extend, MM)
 y_scaled = np.linspace(ymin - extend, ymax + extend, NN)
 mesh = RectangleMesh(np.float(xmin) - extend, np.float(ymin - extend),
                         np.float(xmax + extend) ,np.float(ymax + extend),
-                        MM,
-                        NN
-                        )
+                        MM, NN)
 
 func_space =  FunctionSpace(mesh, "CG", 1)
 func_space_dg =  FunctionSpace(mesh, "DG", 1)
@@ -316,6 +314,7 @@ data_out = {'_'.join([project_name, gs_str, alpha_str, gamma_str, 'mcb_bed']) : 
             '_'.join([project_name, gs_str, alpha_str, gamma_str, 'searise_bed']) : project(S_p-Hsr_p),
             '_'.join([project_name, gs_str, alpha_str, gamma_str, 'searise_flux_div_obs']) : project(div(U*Hsr_p)),
             '_'.join([project_name, gs_str, alpha_str, gamma_str, 'U']) : Unorm,
+            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'divU']) : project(div(U)),
             '_'.join([project_name, gs_str, alpha_str, gamma_str, 'rho']) : rho_p,
             '_'.join([project_name, gs_str, alpha_str, gamma_str, 'smb']) : smb_p,
             '_'.join([project_name, gs_str, alpha_str, gamma_str, 'S']) : S_p,
@@ -413,6 +412,13 @@ print "writing to %s ...\n" % output_filename
 print "run nc2cdo.py to add lat/lon variables" 
 nc.close()
 
+# Write divergence of velocity field
+filename = project_name + '_surf_vels_' + str(grid_spacing) + 'm.nc'
+nc = CDF(filename, 'a')
+create_variable("divU", project(div(U)),
+                long_name="divergence of velocity field",
+                units="year-1")
+nc.close()
 
 ## H_out = interpolate(H, func_space_out)
 ## H_box = scitools.BoxField.dolfin_function2BoxField(H_out, mesh_out, (M,N))

@@ -29,9 +29,11 @@ alpha=1.0
 
 for project in "jakobshavn" "79N" "helheim"
 do
-    ~/base/PyPISMTools/scripts/basemap-plot.py -p medium --geotiff_file MODIS${project}250m.tif  --map_resolution $R --colorbar_label --bounds -100 100 -v divHU_cresis --singlerow --colormap RdBu_r -o ${project}_cresis_divHU.png ${project}_alpha_${alpha}_gamma_${gamma}_masked.nc
-    ~/base/PyPISMTools/scripts/basemap-plot.py -p medium --geotiff_file MODIS${project}250m.tif  --map_resolution $R --colorbar_label --bounds -100 100 -v divHU_searise --singlerow --colormap RdBu_r -o ${project}_searise_divHU.png ${project}_alpha_${alpha}_gamma_${gamma}_masked.nc
-    ~/base/PyPISMTools/scripts/basemap-plot.py -p medium --geotiff_file MODIS${project}250m.tif  --map_resolution $R --colorbar_label --bounds -100 100 -v divHU_umt --singlerow --colormap RdBu_r -o ${project}_umt_divHU.png ${project}_alpha_${alpha}_gamma_${gamma}_masked.nc
+    ~/base/PyPISMTools/scripts/basemap-plot.py -p medium --geotiff_file MODIS${project}250m.tif  --map_resolution $R --colorbar_label --bounds 0 2500 -v thk --singlerow --colormap Set1_r -o ${project}_flightlines_thk.png tmp_${project}_flightlines_${GS}m.nc
+#    ~/base/PyPISMTools/scripts/basemap-plot.py -p medium --geotiff_file MODIS${project}250m.tif  --map_resolution $R --colorbar_label -v magnitude --singlerow -o ${project}_speed.png ${project}_surf_vels_${GS}m.nc
+#    ~/base/PyPISMTools/scripts/basemap-plot.py -p medium --geotiff_file MODIS${project}250m.tif  --map_resolution $R --colorbar_label --bounds -100 100 -v divHU_cresis --singlerow --colormap RdBu_r -o ${project}_cresis_divHU.png ${project}_alpha_${alpha}_gamma_${gamma}_masked.nc
+#    ~/base/PyPISMTools/scripts/basemap-plot.py -p medium --geotiff_file MODIS${project}250m.tif  --map_resolution $R --colorbar_label --bounds -100 100 -v divHU_searise --singlerow --colormap RdBu_r -o ${project}_searise_divHU.png ${project}_alpha_${alpha}_gamma_${gamma}_masked.nc
+#    ~/base/PyPISMTools/scripts/basemap-plot.py -p medium --geotiff_file MODIS${project}250m.tif  --map_resolution $R --colorbar_label --bounds -100 100 -v divHU_umt --singlerow --colormap RdBu_r -o ${project}_umt_divHU.png ${project}_alpha_${alpha}_gamma_${gamma}_masked.nc
 done
 
 for project in "jakobshavn" "79N" "helheim"
