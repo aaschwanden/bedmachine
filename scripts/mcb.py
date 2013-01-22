@@ -178,7 +178,7 @@ alpha = options.alpha
 thk_min = 10
 
 output_order = ("x", "y")
-filename = project_name + '_flighlines_' + str(grid_spacing) + 'm.nc'
+filename = project_name + '_flightlines_' + str(grid_spacing) + 'm.nc'
 nc = CDF(filename, 'r')
 xdim, ydim, zdim, tdim = get_dims(nc)
 x = nc.variables[xdim][:]
@@ -304,7 +304,11 @@ gamma_str = '_'.join(['gamma', str(gamma)])
 alpha_str = '_'.join(['alpha', str(alpha)])
 gs_str = str(grid_spacing) + 'm'
 
-do = DataOutput('./')
+import os
+if not os.path.exists(project_name):
+    os.makedirs(project_name)
+
+do = DataOutput(project_name + '/')
 data_out = {'_'.join([project_name, gs_str, alpha_str, gamma_str, 'mcb_bed']) : project(S_p-H),
             '_'.join([project_name, gs_str, alpha_str, gamma_str, 'mcb_flux_div']) : project(div(U*H)),
             '_'.join([project_name, gs_str, alpha_str, gamma_str, 'cresis_bed']) : project(S_p-Hcresis_p),
@@ -348,7 +352,7 @@ output_filename = '_'.join([project_name, gs_str, alpha_str, gamma_str]) + '.nc'
 
 print "Creating output file..."
 
-nc = CDF(output_filename, 'w')
+nc = CDF('/'.join([project_name, output_filename], 'w')
 
 nc.createDimension("y", size=y.shape[0])
 nc.createDimension("x", size=x.shape[0])
