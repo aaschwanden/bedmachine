@@ -1,5 +1,27 @@
 #!/bin/bash
 
+# Copyright (C) 2013 Andy Aschwanden
+#
+# Description:
+# script will download and process data sets, including
+# querying ice thickness data base, gimp dem, cresis,
+# SeaRISE and UMT data sets.
+# surf_vels.nc containing surface velocities from SAR
+# provided by Ian Joughin is also needed.
+#
+# Usage:
+# This script is not stand-alone, but expected to be sourced
+# from another bash script containing area extends and other
+# parameters needed.
+#
+# You need to open a port in a different shell first:
+# ssh -L5433:icebridge.sr.unh.edu:5432 bmachuser@icebridge.sr.unh.edu
+# and public key exchange is required prior to usage.
+#
+# Returns:
+# - all input files needed to run mass conserving bed estimator
+# code provided by Jesse Johnson.
+
 FL_FILE_TXT=${PROJECT}_flightlines.txt
 
 # Well this takes a while...
@@ -9,10 +31,13 @@ FL_FILE_TXT=${PROJECT}_flightlines.txt
 # TODO:
 # -9999 is the missing value. That should be dealt with in a smarter way.
 
-#python scripts/general_query.py -table cresis_gr -fields "wgs84surf,wgs84bed" -epsg $EPSG -and_clause "wgs84bed>-9999" -box $LON_MIN $LON_MAX $LAT_MIN $LAT_MAX  -mod_val $MOD_VAL -mod_field $MOD_FIELD > $FL_FILE_TXT
+python scripts/general_query.py -table cresis_gr -fields "wgs84surf,wgs84bed" \
+    -epsg $EPSG -and_clause "wgs84bed>-9999" -box $LON_MIN $LON_MAX $LAT_MIN $LAT_MAX \
+    -mod_val $MOD_VAL -mod_field $MOD_FIELD > $FL_FILE_TXT
 
 FL_FILE_NC=${PROJECT}_flightlines_${GS}m.nc
-python scripts/preprocess.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
+python scripts/resample-data.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX \
+    -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
 nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$FL_FILE_NC
 
 # nc2cdo.py is from pism/util/

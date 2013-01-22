@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (C) 2009-2011 Ed Bueler and Andy Aschwanden
+# Copyright (C) 2009-2013 Ed Bueler and Andy Aschwanden
 
 #  submits scripts produced by spawnparam.sh; uses QSUB environment variable if set
 
