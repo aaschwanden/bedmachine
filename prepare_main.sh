@@ -31,9 +31,9 @@ FL_FILE_TXT=${PROJECT}_flightlines.txt
 # TODO:
 # -9999 is the missing value. That should be dealt with in a smarter way.
 
-#python scripts/general_query.py -table cresis_gr -fields "wgs84surf,wgs84bed" \
-#    -epsg $EPSG -and_clause "wgs84bed>-9999" -box $LON_MIN $LON_MAX $LAT_MIN $LAT_MAX \
-#    -mod_val $MOD_VAL -mod_field $MOD_FIELD > $FL_FILE_TXT
+python scripts/general_query.py -table cresis_gr -fields "wgs84surf,wgs84bed" \
+    -epsg $EPSG -and_clause "wgs84bed>-9999" -box $LON_MIN $LON_MAX $LAT_MIN $LAT_MAX \
+    -mod_val $MOD_VAL -mod_field $MOD_FIELD > $FL_FILE_TXT
 
 FL_FILE_NC=${PROJECT}_flightlines_${GS}m.nc
 python scripts/resample-data.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX \
