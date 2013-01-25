@@ -49,11 +49,7 @@ radius_of_influence = grid_spacing  # m
 # read in data
 # we could make this more flexible by only reading lon, lat and then use
 # proj4 to convert to user-specified coordinate reference system.
-x, y, lon, lat, wgs84surf, wgs84bed = np.loadtxt(data_file, unpack=True, skiprows=5, delimiter=',')
-
-
-# also, we should do some quality check here
-wgs84thk = (wgs84surf - wgs84bed)
+x, y, lon, lat, thk = np.loadtxt(data_file, unpack=True, skiprows=5, delimiter=',')
 
 xmin, xmax, ymin, ymax = bounds[0], bounds[1], bounds[2], bounds[3]
 M = int((xmax - xmin) / grid_spacing)
@@ -62,8 +58,8 @@ easting = np.linspace(xmin, xmax, M+1)
 northing = np.linspace(ymin, ymax, N+1)
 X, Y = np.meshgrid(easting, northing)
 
-area_id = 'jakobshavn'
-area_name = 'Jakobshavn basin'
+area_id = 'greenland'
+area_name = 'Greenland'
 proj_id = 'EPSG:3413'
 proj4_str = '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m'
 
@@ -73,7 +69,7 @@ area_def = pr.utils.get_area_def(area_id, area_name, proj_id, proj4_str,
 
 
 swath_def = pr.geometry.SwathDefinition(lons=lon, lats=lat)
-result = pr.kd_tree.resample_nearest(swath_def, wgs84thk,
+result = pr.kd_tree.resample_nearest(swath_def, thk,
                                      area_def,
                                      radius_of_influence=radius_of_influence,
                                      epsilon=0.5,
