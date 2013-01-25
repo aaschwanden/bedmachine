@@ -49,7 +49,7 @@ radius_of_influence = grid_spacing  # m
 # read in data
 # we could make this more flexible by only reading lon, lat and then use
 # proj4 to convert to user-specified coordinate reference system.
-x, y, lon, lat, thk, quality, frame = np.loadtxt(data_file, unpack=True, skiprows=5, delimiter=',')
+THICK,LAT,LON = np.loadtxt(data_file, unpack=True, skiprows=1, delimiter=',', usecols=(2,5,6))
 
 xmin, xmax, ymin, ymax = bounds[0], bounds[1], bounds[2], bounds[3]
 M = int((xmax - xmin) / grid_spacing)
@@ -68,8 +68,8 @@ area_def = pr.utils.get_area_def(area_id, area_name, proj_id, proj4_str,
                               M+1, N+1, area_extent)
 
 
-swath_def = pr.geometry.SwathDefinition(lons=lon, lats=lat)
-result = pr.kd_tree.resample_nearest(swath_def, thk,
+swath_def = pr.geometry.SwathDefinition(lons=LON, lats=LAT)
+result = pr.kd_tree.resample_nearest(swath_def, THICK,
                                      area_def,
                                      radius_of_influence=radius_of_influence,
                                      epsilon=0.5,

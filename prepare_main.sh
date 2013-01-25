@@ -22,7 +22,8 @@
 # - all input files needed to run mass conserving bed estimator
 # code provided by Jesse Johnson.
 
-FL_FILE_TXT=${PROJECT}_flightlines.txt
+# FL_FILE_TXT=${PROJECT}_flightlines.txt
+FL_FILE_TXT=${PROJECT}_cresis_flightlines_${YEARA}-${YEARE}.csv
 
 # Well this takes a while...
 # But we leave it at that for now. In the longer run, we need a python 
@@ -31,12 +32,12 @@ FL_FILE_TXT=${PROJECT}_flightlines.txt
 # TODO:
 # -9999 is the missing value. That should be dealt with in a smarter way.
 
-python scripts/general_query.py -table cresis_gr -fields "thick" -year_range $YEARA $YEARE \
-    -epsg $EPSG -and_clause "(quality>-1 or quality<5) and (wgs84bed>-9999)" -box $LON_MIN $LON_MAX $LAT_MIN $LAT_MAX \
-    -mod_val $MOD_VAL -mod_field $MOD_FIELD > $FL_FILE_TXT
+# python scripts/general_query.py -table cresis_gr -fields "thick,quality,frame" -year_range $YEARA $YEARE \
+#    -epsg $EPSG -and_clause "(quality>-1 or quality<5) and (thick>-9999)" -box $LON_MIN $LON_MAX $LAT_MIN $LAT_MAX \
+#    -mod_val $MOD_VAL -mod_field $MOD_FIELD > $FL_FILE_TXT
 
 FL_FILE_NC=${PROJECT}_flightlines_${GS}m.nc
-python scripts/resample-data.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX \
+python scripts/resample-cresis-data.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX \
     -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
 nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$FL_FILE_NC
 
@@ -94,6 +95,8 @@ GIMP=gimpdem_90m
 GIMP_FILE_NC=${PROJECT}_gimp_${GS}m.nc
 wget -nc ftp://ftp-bprc.mps.ohio-state.edu/downloads/gdg/gimpdem/$GIMP.tif.zip
 unzip -o $GIMP.tif.zip
+gdal_translate -projwin  $X_MIN $Y_MAX $X_MAX $Y_MIN $GIMP.tif ${RPOJECT}_${GIMP}.tif
+gdaldem hillshade -s 0.5 ${PROJECT}_${GIMP}.tif ${PROJECT}_${GIMP}_hillshade.tif
 gdalwarp $WARPOPTIONS -of netCDF $GIMP.tif tmp_$GIMP_FILE_NC
 ncrename -v Band1,usurf tmp_$GIMP_FILE_NC
 nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$GIMP_FILE_NC

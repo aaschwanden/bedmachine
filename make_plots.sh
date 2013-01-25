@@ -7,11 +7,12 @@ GS=500
 fill_value=-2e9
 
 
-for gamma in 1.0 2.0 5.0 10.0 20.0 50.0
+for gamma in 1.0 5.0 10.0 50.0 100.0
 do
-  for alpha in 0.0 1.0 2.0
+  for alpha in 0.0
   do
-      for project in "jakobshavn" "79N" "helheim"
+#      for project in "jakobshavn" "79N" "helheim"
+      for project in "jakobshavn"
       do
       nc2cdo.py ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}.nc
       nccopy ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}.nc ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_masked.nc
@@ -30,9 +31,10 @@ do
 done
 
 gamma=1.0
-alpha=1.0
+alpha=0.0
 
-for project in "jakobshavn" "79N" "helheim"
+#for project in "jakobshavn" "79N" "helheim"
+for project in "jakobshavn"
 do
     # thk flightlines
     basemap-plot.py -p medium --geotiff_file MODIS${project}250m.tif  --map_resolution $R --colorbar_label --bounds 0 2500 -v thk --singlerow --colormap Set1_r -o ${project}/${project}_${GS}m_flightlines_thk.png tmp_${project}_flightlines_${GS}m.nc
@@ -46,7 +48,8 @@ do
     basemap-plot.py -p medium --geotiff_file MODIS${project}250m.tif  --map_resolution $R --colorbar_label --bounds -100 100 -v divHU_umt --singlerow --colormap RdBu_r -o ${project}/${project}_${GS}m_umt_divHU.png ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_masked.nc
 done
 
-for project in "jakobshavn" "79N" "helheim"
+#for project in "jakobshavn" "79N" "helheim"
+for project in "jakobshavn"
 do
     for dataset in "cresis" "umt" "searise_v1.1"
     do
@@ -73,3 +76,6 @@ do
      done
   done
 done
+
+exit
+
