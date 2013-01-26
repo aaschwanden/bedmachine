@@ -37,10 +37,13 @@ FL_FILE_TXT=${PROJECT}_cresis_flightlines_${YEARA}-${YEARE}.csv
 #    -mod_val $MOD_VAL -mod_field $MOD_FIELD > $FL_FILE_TXT
 
 FL_FILE_NC=${PROJECT}_flightlines_${GS}m.nc
-python scripts/resample-cresis-data.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX \
-    -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
+# python scripts/resample-cresis-data.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX \
+#     -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
 nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$FL_FILE_NC
 
+python scripts/sorensen_ascii2nc_grid.py -g ${GS} --epsg ${EPSG} --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX -o ${PROJECT}_dhdt_${GS}m.nc 2003_2009_cleaned.txt
+
+exit
 # nc2cdo.py is from pism/util/
 # it adds lat/lon, but also the 4 grid corners of each cell, needed for
 # conservative remapping via CDO.
@@ -95,7 +98,7 @@ GIMP=gimpdem_90m
 GIMP_FILE_NC=${PROJECT}_gimp_${GS}m.nc
 wget -nc ftp://ftp-bprc.mps.ohio-state.edu/downloads/gdg/gimpdem/$GIMP.tif.zip
 unzip -o $GIMP.tif.zip
-gdal_translate -projwin  $X_MIN $Y_MAX $X_MAX $Y_MIN $GIMP.tif ${RPOJECT}_${GIMP}.tif
+gdal_translate -projwin  $X_MIN $Y_MAX $X_MAX $Y_MIN $GIMP.tif ${PROJECT}_${GIMP}.tif
 gdaldem hillshade -s 0.5 ${PROJECT}_${GIMP}.tif ${PROJECT}_${GIMP}_hillshade.tif
 gdalwarp $WARPOPTIONS -of netCDF $GIMP.tif tmp_$GIMP_FILE_NC
 ncrename -v Band1,usurf tmp_$GIMP_FILE_NC
