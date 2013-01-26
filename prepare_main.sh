@@ -37,13 +37,12 @@ FL_FILE_TXT=${PROJECT}_cresis_flightlines_${YEARA}-${YEARE}.csv
 #    -mod_val $MOD_VAL -mod_field $MOD_FIELD > $FL_FILE_TXT
 
 FL_FILE_NC=${PROJECT}_flightlines_${GS}m.nc
-# python scripts/resample-cresis-data.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX \
-#     -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
+python scripts/resample-cresis-data.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX \
+    -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
 nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$FL_FILE_NC
 
-python scripts/sorensen_ascii2nc_grid.py -g ${GS} --epsg ${EPSG} --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX -o ${PROJECT}_dhdt_${GS}m.nc 2003_2009_cleaned.txt
+# python scripts/sorensen_ascii2nc_grid.py -g ${GS} --epsg ${EPSG} --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX -o ${PROJECT}_dhdt_${GS}m.nc 2003_2009_cleaned.txt
 
-exit
 # nc2cdo.py is from pism/util/
 # it adds lat/lon, but also the 4 grid corners of each cell, needed for
 # conservative remapping via CDO.
