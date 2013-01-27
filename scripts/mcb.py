@@ -152,6 +152,10 @@ parser.add_argument("-f","--scale_factor", dest="scale_factor",
                     type=float,
                     help='''Scale the element size Values<1 mean a coarser mesh. Default=1''',
                     default=1.)
+parser.add_argument("--dhdt", dest="do_dhdt", action="store_true",
+                  help="Include dhdt term.", default=False)
+parser.add_argument("--bmelt", dest="do_bmelt", action="store_true",
+                  help="Include basal melt term.", default=False)
 parser.add_argument("-a","--alpha", dest="alpha", type=float,
                     help='''Regularization parameter''',
                     default=2.0)
@@ -166,6 +170,8 @@ parser.add_argument("-p","--project", dest="project_name",
                     default='jakobshavn')
 options = parser.parse_args()
 scale_factor = options.scale_factor
+do_dhdt = options.dhdt
+do_bmelt = options.do_bmelt
 parameters['allow_extrapolation'] = True
 project_name = str(options.project_name)
 grid_spacing = options.grid_spacing
@@ -196,15 +202,25 @@ ymax = y[-1]
 nc.close()
 
 output_order = ("x", "y")
+filename = project_name + '_cresis_' + str(grid_spacing) + 'm.nc'
+nc = CDF(filename, 'r')
+xdim, ydim, zdim, tdim = get_dims(nc)
+Hcresis = np.squeeze(permute(nc.variables["thk"], output_order=output_order))
+Scresis = np.squeeze(permute(nc.variables["usurf"], output_order=output_order))
+nc.close()
+
+output_order = ("x", "y")
 filename = project_name + '_surf_vels_' + str(grid_spacing) + 'm.nc'
 nc = CDF(filename, 'r')
 xdim, ydim, zdim, tdim = get_dims(nc)
 uvel = np.squeeze(permute(nc.variables["us"], output_order=output_order))
 uvel_fill = nc.variables["us"]._FillValue
 uvel[uvel.data==uvel_fill] = 0.
+uvel[Scresis<thk_min] = 0.
 vvel = np.squeeze(permute(nc.variables["vs"], output_order=output_order))
 vvel_fill = nc.variables["vs"]._FillValue
 vvel[vvel.data==vvel_fill] = 0.
+vvel[Scresis<thk_min] = 0.
 nc.close()
 
 output_order = ("x", "y")
@@ -212,13 +228,6 @@ filename = project_name + '_umt_' + str(grid_spacing) + 'm.nc'
 nc = CDF(filename, 'r')
 xdim, ydim, zdim, tdim = get_dims(nc)
 Humt = np.squeeze(permute(nc.variables["thk"], output_order=output_order))
-nc.close()
-
-output_order = ("x", "y")
-filename = project_name + '_cresis_' + str(grid_spacing) + 'm.nc'
-nc = CDF(filename, 'r')
-xdim, ydim, zdim, tdim = get_dims(nc)
-Hcresis = np.squeeze(permute(nc.variables["thk"], output_order=output_order))
 nc.close()
 
 output_order = ("time", "x", "y")
@@ -263,6 +272,32 @@ Humt_p = project(generate_expression_from_gridded_data(x, y, Humt), func_space)
 u_o = project(generate_expression_from_gridded_data(x, y, uvel), func_space)
 v_o = project(generate_expression_from_gridded_data(x, y, vvel), func_space)
 
+if do_dhdt:
+    output_order = ("x", "y")
+    filename = project_name + '_dhdt_' + str(grid_spacing) + 'm.nc'
+    nc = CDF(filename, 'r')
+    xdim, ydim, zdim, tdim = get_dims(nc)
+    dHdt = np.squeeze(permute(nc.variables["dhdt"], output_order=output_order))
+    nc.close()
+    dHdt_p = project(generate_expression_from_gridded_data(x, y, dHdt), func_space)
+    dHdt_str = "dhdt"
+else:
+    dHdt_p = 0.
+    dHdt_str = "nodhdt"
+    
+if do_bmelt:
+    output_order = ("x", "y")
+    filename = project_name + '_bmelt_' + str(grid_spacing) + 'm.nc'
+    nc = CDF(filename, 'r')
+    xdim, ydim, zdim, tdim = get_dims(nc)
+    dHdt = np.squeeze(permute(nc.variables["bmelt"], output_order=output_order))
+    nc.close()
+    bmelt_p = project(generate_expression_from_gridded_data(x, y, bmelt), func_space)
+    bmelt_str = "bmelt"
+else:
+    bmelt_p = 0.
+    bmelt_str = "nobmelt"
+
 # Velocity norm
 U = as_vector([u_o,v_o])  # unsmoothed
 Unorm = project(sqrt(dot(U,U)) + 1e-10)
@@ -290,7 +325,7 @@ dH = TrialFunction(func_space)
 phi = TestFunction(func_space)
 
 # Objective function
-I = (div(U*H) - smb_p)**2*dx \
+I = (div(U*H) - smb_p + bmelt_p + dHdt_p)**2*dx \
     + gamma*rho_p*0.5*(H-H0_p)**2*dx \
     + alpha*(H.dx(0)**2 + H.dx(1)**2)*dx
 
@@ -309,24 +344,24 @@ if not os.path.exists(project_name):
     os.makedirs(project_name)
 
 out_dir = project_name + '/'
-do = DataOutput(out_dir)
-data_out = {'_'.join([project_name, gs_str, alpha_str, gamma_str, 'mcb_bed']) : project(S_p-H),
-            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'mcb_flux_div']) : project(div(U*H)),
-            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'cresis_bed']) : project(S_p-Hcresis_p),
-            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'cresis_flux_div_obs']) : project(div(U*Hcresis_p)),
-            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'umt_bed']) : project(S_p-Humt_p),
-            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'umt_flux_div_obs']) : project(div(U*Humt_p)),
-            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'searise_bed']) : project(S_p-Hsr_p),
-            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'searise_flux_div_obs']) : project(div(U*Hsr_p)),
-            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'U']) : Unorm,
-            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'divU']) : project(div(U)),
-            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'rho']) : rho_p,
-            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'smb']) : smb_p,
-            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'S']) : S_p,
-            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'H0']) : H0_p,
-            '_'.join([project_name, gs_str, alpha_str, gamma_str, 'thk']) : H,
-            }
-do.write_dictionary_of_files(data_out)
+## do = DataOutput(out_dir)
+## data_out = {'_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'mcb_bed']) : project(S_p-H),
+##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'mcb_flux_div']) : project(div(U*H)),
+##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'cresis_bed']) : project(S_p-Hcresis_p),
+##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'cresis_flux_div_obs']) : project(div(U*Hcresis_p)),
+##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'umt_bed']) : project(S_p-Humt_p),
+##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'umt_flux_div_obs']) : project(div(U*Humt_p)),
+##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'searise_bed']) : project(S_p-Hsr_p),
+##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'searise_flux_div_obs']) : project(div(U*Hsr_p)),
+##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'U']) : Unorm,
+##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'divU']) : project(div(U)),
+##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'rho']) : rho_p,
+##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'smb']) : smb_p,
+##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'S']) : S_p,
+##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'H0']) : H0_p,
+##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'thk']) : H,
+##             }
+## do.write_dictionary_of_files(data_out)
 
 
 def evaluate_regular_grid(f, x, y):
@@ -342,7 +377,7 @@ def evaluate_regular_grid(f, x, y):
     return fa
 
 
-output_filename = '_'.join([project_name, gs_str, alpha_str, gamma_str]) + '.nc'
+output_filename = '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str,]) + '.nc'
 
 ## mesh_out = RectangleMesh(np.float(xmin), np.float(ymin),
 ##                          np.float(xmax), np.float(ymax),

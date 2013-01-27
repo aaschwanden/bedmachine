@@ -37,8 +37,8 @@ FL_FILE_TXT=${PROJECT}_cresis_flightlines_${YEARA}-${YEARE}.csv
 #    -mod_val $MOD_VAL -mod_field $MOD_FIELD > $FL_FILE_TXT
 
 FL_FILE_NC=${PROJECT}_flightlines_${GS}m.nc
-python scripts/resample-cresis-data.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX \
-    -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
+#python scripts/resample-cresis-data.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX \
+#    -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
 nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$FL_FILE_NC
 
 # python scripts/sorensen_ascii2nc_grid.py -g ${GS} --epsg ${EPSG} --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX -o ${PROJECT}_dhdt_${GS}m.nc 2003_2009_cleaned.txt
@@ -55,6 +55,15 @@ nc2cdo.py $FL_FILE_NC
 
 
 WARPOPTIONS="-overwrite -multi -r bilinear -te $X_MIN $Y_MIN $X_MAX $Y_MAX -tr $GS $GS -t_srs EPSG:$EPSG"
+
+BMELT_FILE_IN=g1km_0_CLRUN_bmelt.nc
+BMELT_FILE_NC=${PROJECT}_bmelt_${GS}m.nc
+if [ [$NN == 1] ] ; then
+  REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC $BMELT_FILE_IN $BMELT_FILE_NC
+else
+  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC $BMELT_FILE_IN $BMELT_FILE_NC
+fi
+ncks -A -v x,y,mapping $FL_FILE_NC $BMELT_FILE_NC
 
 
 # CReSIS data set
@@ -149,11 +158,20 @@ nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 
 # remap surface velocities, select area frist to speed
 # things up a bit
 VELIN_FILE=surf_vels.nc
+cdo -O setmisstoc,0. $VELIN_FILE tmp_$VELIN_FILE
+ncap2 -O -L 3 -4 -s "magnitude(3269,928)=-2e9; magnitude(3270,928)=-2e9; us(3269,928)=-2e9; us(3270,928)=-2e9; vs(3269,928)=-2e9; vs(3270,928)=-2e9;"  tmp_$VELIN_FILE tmp_$VELIN_FILE
+fill_missing.py -v magnitude,us,vs -e 1 -f tmp_$VELIN_FILE -o tmp2_$VELIN_FILE
+ncks -A -v x,y,mapping $VELIN_FILE tmp2_$VELIN_FILE
+MASK_FILE=g1km_0_CLRUN_mask.nc
+python scripts/resample-mask.py -n $NN $MASK_FILE tmp2_$VELIN_FILE
+ncap2 -O -s "where(mask==4) {magnitude=0.; us=0.; vs=0.;}" tmp2_$VELIN_FILE tmp2_$VELIN_FILE
+
 VELOUT_FILE=${PROJECT}_surf_vels_${GS}m.nc
+
 if [ [$NN == 1] ] ; then
-  cdo remapbil,$FL_FILE_NC -sellonlatbox,$LON_MIN,$LON_MAX,$LAT_MIN,$LAT_MAX $VELIN_FILE $VELOUT_FILE
+  cdo remapbil,$FL_FILE_NC -sellonlatbox,$LON_MIN,$LON_MAX,$LAT_MIN,$LAT_MAX -selvar,us,vs,magnitude tmp2_$VELIN_FILE $VELOUT_FILE
 else
-  cdo -P $NN remapbil,$FL_FILE_NC  -sellonlatbox,$LON_MIN,$LON_MAX,$LAT_MIN,$LAT_MAX $VELIN_FILE $VELOUT_FILE
+  cdo -P $NN remapbil,$FL_FILE_NC  -sellonlatbox,$LON_MIN,$LON_MAX,$LAT_MIN,$LAT_MAX -selvar,us,vs,magnitude tmp2_$VELIN_FILE $VELOUT_FILE
 fi
 ncks -A -v x,y,mapping $FL_FILE_NC $VELOUT_FILE
 ncatted -a grid_mapping,us,o,c,"mapping" -a grid_mapping,vs,o,c,"mapping" -a grid_mapping,magnitude,o,c,"mapping" $VELOUT_FILE
