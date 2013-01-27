@@ -214,12 +214,18 @@ filename = project_name + '_surf_vels_' + str(grid_spacing) + 'm.nc'
 nc = CDF(filename, 'r')
 xdim, ydim, zdim, tdim = get_dims(nc)
 uvel = np.squeeze(permute(nc.variables["us"], output_order=output_order))
-uvel_fill = nc.variables["us"]._FillValue
-uvel[uvel.data==uvel_fill] = 0.
+try:
+    uvel_fill = nc.variables["us"]._FillValue
+    uvel[uvel.data==uvel_fill] = 0.
+except:
+    pass
 uvel[Scresis<thk_min] = 0.
 vvel = np.squeeze(permute(nc.variables["vs"], output_order=output_order))
-vvel_fill = nc.variables["vs"]._FillValue
-vvel[vvel.data==vvel_fill] = 0.
+try:
+    vvel_fill = nc.variables["vs"]._FillValue
+    vvel[vvel.data==vvel_fill] = 0.
+except:
+    pass
 vvel[Scresis<thk_min] = 0.
 nc.close()
 
