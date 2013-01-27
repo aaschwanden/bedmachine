@@ -292,11 +292,11 @@ else:
     dHdt_str = "nodhdt"
     
 if do_bmelt:
-    output_order = ("x", "y")
+    output_order = ("time", "x", "y")
     filename = project_name + '_bmelt_' + str(grid_spacing) + 'm.nc'
     nc = CDF(filename, 'r')
     xdim, ydim, zdim, tdim = get_dims(nc)
-    dHdt = np.squeeze(permute(nc.variables["bmelt"], output_order=output_order))
+    bmelt = np.squeeze(permute(nc.variables["bmelt"], output_order=output_order))
     nc.close()
     bmelt_p = project(generate_expression_from_gridded_data(x, y, bmelt), func_space)
     bmelt_str = "bmelt"
