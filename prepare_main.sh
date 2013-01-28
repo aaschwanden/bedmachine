@@ -29,19 +29,15 @@ FL_FILE_TXT=${PROJECT}_cresis_flightlines_${YEARA}-${YEARE}.csv
 # But we leave it at that for now. In the longer run, we need a python 
 # script that downloads the data and puts it into a more appriate format
 # than ASCII.
-# TODO:
-# -9999 is the missing value. That should be dealt with in a smarter way.
 
 # python scripts/general_query.py -table cresis_gr -fields "thick,quality,frame" -year_range $YEARA $YEARE \
 #    -epsg $EPSG -and_clause "(quality>-1 or quality<5) and (thick>-9999)" -box $LON_MIN $LON_MAX $LAT_MIN $LAT_MAX \
 #    -mod_val $MOD_VAL -mod_field $MOD_FIELD > $FL_FILE_TXT
 
 FL_FILE_NC=${PROJECT}_flightlines_${GS}m.nc
-#python scripts/resample-cresis-data.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX \
-#    -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
+python scripts/resample-cresis-data.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX \
+    -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
 nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$FL_FILE_NC
-
-# python scripts/sorensen_ascii2nc_grid.py -g ${GS} --epsg ${EPSG} --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX -o ${PROJECT}_dhdt_${GS}m.nc 2003_2009_cleaned.txt
 
 # nc2cdo.py is from pism/util/
 # it adds lat/lon, but also the 4 grid corners of each cell, needed for
@@ -55,6 +51,16 @@ nc2cdo.py $FL_FILE_NC
 
 
 WARPOPTIONS="-overwrite -multi -r bilinear -te $X_MIN $Y_MIN $X_MAX $Y_MAX -tr $GS $GS -t_srs EPSG:$EPSG"
+
+SPOT_FILE_IN=jakobshavn_spot_dem_diff_clean.nc
+SPOT_FILE_NC=${PROJECT}_dhdt_${GS}m.nc
+if [ [$NN == 1] ] ; then
+  REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC $SPOT_FILE_IN $SPOT_FILE_NC
+else
+  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC $SPOT_FILE_IN $SPOT_FILE_NC
+fi
+ncrename -v Band1,dhdt $SPOT_FILE_NC
+ncks -A -v x,y,mapping $FL_FILE_NC $SPOT_FILE_NC
 
 BMELT_FILE_IN=g1km_0_CLRUN_bmelt.nc
 BMELT_FILE_NC=${PROJECT}_bmelt_${GS}m.nc
