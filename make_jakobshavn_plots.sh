@@ -9,7 +9,7 @@ fill_value=-2e9
 
 for gamma in 1.0 5.0 10.0 50.0 100.0
 do
-  for alpha in 0.0
+  for alpha in 5.0 10.0
   do
       for project in "jakobshavn"
       do
@@ -17,11 +17,16 @@ do
           do
               nc2cdo.py ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}.nc
               nccopy ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}.nc ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}_masked.nc
+              for var in "topg" "thk" "divHU"
+              do
+              gdal_translate -a_srs EPSG:3413 -of GTiff NETCDF:${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}.nc:${var} ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}_${var}.tif
+              gdaldem hillshade -s 0.5 ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}_$var.tif ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}_${var}_hillshade.tif
+              done
               ncks -A -v thk ${project}_cresis_${GS}m.nc ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}_masked.nc
               ncap2 -O -s "where(thk<=0.) {topg=$fill_value; divHU=$fill_value; divHU_cresis=$fill_value; divHU_umt=$fill_value; divHU_searise=$fill_value;}" ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}_masked.nc ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}_masked.nc
               ncatted -a _FillValue,topg,o,f,$fill_value -a _FillValue,divHU,o,f,$fill_value -a _FillValue,divHU_umt,o,f,$fill_value -a _FillValue,divHU_cresis,o,f,$fill_value -a _FillValue,divHU_searise,o,f,$fill_value -a _FillValue,divU,o,f,$fill_value ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}_masked.nc
       ## topg
-              basemap-plot.py -p medium --geotiff_file ${project}_gimpdem_90m_hillshade.tif --map_resolution $R --colorbar_label -v topg --singlerow --colormap /Users/andy/base/PyPISMTools/colormaps/wiki-2.0.cpt -o ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}_topg.png ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}_masked.nc
+              basemap-plot.py -p medium --geotiff_file ${project}_gimpdem_90m_hillshade.tif --shape_file jakobshavn_terminus_2009 --map_resolution $R --colorbar_label -v topg --singlerow --colormap /Users/andy/base/PyPISMTools/colormaps/wiki-2.0.cpt -o ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}_topg.png ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}_masked.nc
       ## divHU
               basemap-plot.py -p medium --geotiff_file ${project}_gimpdem_90m_hillshade.tif --map_resolution $R --colorbar_label -v divHU --singlerow --colormap RdBu_r  --bounds -100 100 -o ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}_divHU.png ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_${exp}_masked.nc
       ## thk
@@ -64,7 +69,7 @@ for gamma in 1.0 2.0 5.0 10.0 20.0 50.0
 do
   for alpha in 0.0 1.0 2.0
   do
-      for project in "jakobshavn" "79N" "helheim"
+      for project in "jakobshavn"
       do
           for dataset in "cresis" "umt" "searise_v1.1"
           do
