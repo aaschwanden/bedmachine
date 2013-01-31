@@ -165,7 +165,7 @@ nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 
 # things up a bit
 VELIN_FILE=surf_vels.nc
 cdo -O setmisstoc,0. $VELIN_FILE tmp_$VELIN_FILE
-ncap2 -O -L 3 -4 -s "magnitude(3269,928)=-2e9; magnitude(3270,928)=-2e9; us(3269,928)=-2e9; us(3270,928)=-2e9; vs(3269,928)=-2e9; vs(3270,928)=-2e9;"  tmp_$VELIN_FILE tmp_$VELIN_FILE
+ncap2 -O -L 3 -4 -S removepoints.nco  tmp_$VELIN_FILE tmp_$VELIN_FILE
 fill_missing.py -v magnitude,us,vs -e 1 -f tmp_$VELIN_FILE -o tmp2_$VELIN_FILE
 ncks -A -v x,y,mapping $VELIN_FILE tmp2_$VELIN_FILE
 MASK_FILE=g1km_0_CLRUN_mask.nc
