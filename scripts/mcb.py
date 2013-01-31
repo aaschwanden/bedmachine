@@ -444,10 +444,15 @@ create_variable("divHU_searise", project(div(Hsr_p*U)), long_name="flux divergen
 create_variable("divU", project(div(U)),
                 long_name="divergence of velocity field",
                 units="year-1")
-create_variable("bc", project(dbc),
-                long_name="boundary condition mask",
-                units="1")
-
+create_variable("cflux", project(sqrt((u_o*H)**2+(v_o*H)**2)),
+                long_name="magnitude of vertically-averaged flux",
+                units="m2 year-1")
+create_variable("uflux", project(v_o*H),
+                long_name="x-component of vertically-averaged flux",
+                units="m2 year-1")
+create_variable("vflux", project((v_o*H)),
+                long_name="y-component of vertically-averaged flux",
+                units="m2 year-1")
 
 # Save the projection information:
 nc.projection = proj4_str
