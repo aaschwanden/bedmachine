@@ -219,14 +219,14 @@ try:
     uvel[uvel.data==uvel_fill] = 0.
 except:
     pass
-uvel[Scresis<thk_min] = 0.
+#uvel[Scresis<thk_min] = 0.
 vvel = np.squeeze(permute(nc.variables["vs"], output_order=output_order))
 try:
     vvel_fill = nc.variables["vs"]._FillValue
     vvel[vvel.data==vvel_fill] = 0.
 except:
     pass
-vvel[Scresis<thk_min] = 0.
+#vvel[Scresis<thk_min] = 0.
 nc.close()
 
 output_order = ("x", "y")
