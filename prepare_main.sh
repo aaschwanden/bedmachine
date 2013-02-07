@@ -62,14 +62,14 @@ fi
 ncrename -v Band1,dhdt $SPOT_FILE_NC
 ncks -A -v x,y,mapping $FL_FILE_NC $SPOT_FILE_NC
 
-BMELT_FILE_IN=g1km_0_CLRUN_bmelt.nc
-BMELT_FILE_NC=${PROJECT}_bmelt_${GS}m.nc
-if [ [$NN == 1] ] ; then
-  REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC $BMELT_FILE_IN $BMELT_FILE_NC
-else
-  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC $BMELT_FILE_IN $BMELT_FILE_NC
-fi
-ncks -A -v x,y,mapping $FL_FILE_NC $BMELT_FILE_NC
+#BMELT_FILE_IN=g1km_0_CLRUN_bmelt.nc
+#BMELT_FILE_NC=${PROJECT}_bmelt_${GS}m.nc
+#if [ [$NN == 1] ] ; then
+#  REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC $BMELT_FILE_IN $BMELT_FILE_NC
+#else
+#  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC $BMELT_FILE_IN $BMELT_FILE_NC
+#fi
+#ncks -A -v x,y,mapping $FL_FILE_NC $BMELT_FILE_NC
 
 
 # CReSIS data set
@@ -161,23 +161,25 @@ ncks -A -v x,y,mapping $FL_FILE_NC $SR_FILE_NC
 ncatted -a grid_mapping,thk,o,c,"mapping" -a grid_mapping,topg,o,c,"mapping" -a grid_mapping,smb,o,c,"mapping" $SR_FILE_NC
 nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' $SR_FILE_NC
 
+for VYEARS in "2006_2007" "2007_2008" "2008_2009"; do
 # remap surface velocities, select area frist to speed
 # things up a bit
-VELIN_FILE=surf_vels.nc
-cdo -O setmisstoc,0. $VELIN_FILE tmp_$VELIN_FILE
-ncap2 -O -S removepoints.nco  tmp_$VELIN_FILE tmp_$VELIN_FILE
-fill_missing.py -v magnitude,us,vs -e 1 -f tmp_$VELIN_FILE -o tmp2_$VELIN_FILE
-ncks -A -v x,y,mapping $VELIN_FILE tmp2_$VELIN_FILE
+    VELIN_FILE=surf_vels_500m_${VYEARS}.nc
+    #cdo -O setmisstoc,0. $VELIN_FILE tmp_$VELIN_FILE
+#ncap2 -O -S removepoints.nco  tmp_$VELIN_FILE tmp_$VELIN_FILE
+#fill_missing.py -v magnitude,us,vs -e 1 -f tmp_$VELIN_FILE -o tmp2_$VELIN_FILE
+    #ncks -A -v x,y,mapping $VELIN_FILE tmp_$VELIN_FILE
 #MASK_FILE=g1km_0_CLRUN_mask.nc
 #python scripts/resample-mask.py -n $NN $MASK_FILE tmp2_$VELIN_FILE
 #ncap2 -O -s "where(mask==4) {magnitude=0.; us=0.; vs=0.;}" tmp2_$VELIN_FILE tmp2_$VELIN_FILE
 
-VELOUT_FILE=${PROJECT}_surf_vels_${GS}m.nc
+    VELOUT_FILE=${PROJECT}_surf_vels_${VYEARS}_${GS}m.nc
 
-if [ [$NN == 1] ] ; then
-  cdo remapbil,$FL_FILE_NC -sellonlatbox,$LON_MIN,$LON_MAX,$LAT_MIN,$LAT_MAX -selvar,us,vs,magnitude tmp2_$VELIN_FILE $VELOUT_FILE
-else
-  cdo -P $NN remapbil,$FL_FILE_NC  -sellonlatbox,$LON_MIN,$LON_MAX,$LAT_MIN,$LAT_MAX -selvar,us,vs,magnitude tmp2_$VELIN_FILE $VELOUT_FILE
-fi
-ncks -A -v x,y,mapping $FL_FILE_NC $VELOUT_FILE
-ncatted -a grid_mapping,us,o,c,"mapping" -a grid_mapping,vs,o,c,"mapping" -a grid_mapping,magnitude,o,c,"mapping" $VELOUT_FILE
+    if [ [$NN == 1] ] ; then
+        cdo remapbil,$FL_FILE_NC -sellonlatbox,$LON_MIN,$LON_MAX,$LAT_MIN,$LAT_MAX -selvar,us,vs,magnitude $VELIN_FILE $VELOUT_FILE
+    else
+        cdo -P $NN remapbil,$FL_FILE_NC  -sellonlatbox,$LON_MIN,$LON_MAX,$LAT_MIN,$LAT_MAX -selvar,us,vs,magnitude $VELIN_FILE $VELOUT_FILE
+    fi
+    ncks -A -v x,y,mapping $FL_FILE_NC $VELOUT_FILE
+    ncatted -a grid_mapping,us,o,c,"mapping" -a grid_mapping,vs,o,c,"mapping" -a grid_mapping,magnitude,o,c,"mapping" $VELOUT_FILE
+done

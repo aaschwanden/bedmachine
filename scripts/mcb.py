@@ -432,6 +432,9 @@ create_variable("topg", project(S_p-H),
                 long_name="bedrock surface elevation from mass conservation",
                 standard_name="bedrock_altitude",
                 units="m")
+create_variable("U_mag", project(U),
+                long_name="magnitude of horizontal surface velocities",
+                units="m year-1")
 create_variable("divHU", project(div(H*U)),
                 long_name="flux divergence using mass conservation",
                 units="m year-1")
