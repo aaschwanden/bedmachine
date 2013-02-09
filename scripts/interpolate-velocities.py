@@ -103,9 +103,7 @@ except:
 u = us[:]
 v = vs[:]
 Umag = magnitude[:]
-
-# calculate magnitude of error
-error_mag = np.sqrt(ue**2 + ve**2)
+error_mag = ue
 
 if debug:
     import pylab as plt

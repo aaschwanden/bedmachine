@@ -30,6 +30,9 @@ parser.add_argument("-m","--missing_value", dest="miss_val", type=float,
                   help='''Missing value. Default=-9999.''', default=-9999.)
 parser.add_argument("-n","--no_procs", dest="nprocs", type=int,
                   help='''No. of cores used for resamping.''', default=4)
+parser.add_argument("-c","--constraints", dest="constraints",
+                  help='''ASCII file (lon, lat, thk) with additional constraints''', default=None)
+
 
 options = parser.parse_args()
 args = options.FILE
@@ -45,11 +48,18 @@ nprocs = options.nprocs
 fill_value = -2e9
 # FIXME: how to choose this value?
 radius_of_influence = grid_spacing  # m
+constraints = options.constraints
 
 # read in data
 # we could make this more flexible by only reading lon, lat and then use
 # proj4 to convert to user-specified coordinate reference system.
 x, y, lon, lat, thk, quality, frame = np.loadtxt(data_file, unpack=True, skiprows=5, delimiter=',')
+
+if constraints:
+    lon_c, lat_c, thk_c = np.loadtxt(constraints, unpack=True, skiprows=1, delimiter=',')
+    lon = np.hstack((lon, lon_c))
+    lat = np.hstack((lat, lat_c))
+    thk = np.hstack((thk, thk_c))
 
 xmin, xmax, ymin, ymax = bounds[0], bounds[1], bounds[2], bounds[3]
 M = int((xmax - xmin) / grid_spacing)
