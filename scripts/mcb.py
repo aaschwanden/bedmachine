@@ -331,7 +331,7 @@ dH = TrialFunction(func_space)
 phi = TestFunction(func_space)
 
 # Objective function
-I = (div(U*H) - smb_p + bmelt_p + dHdt_p)**2*dx \
+I = (div(U*H) - smb_p + bmelt_p + dHdt_p)**(2)*dx \
     + gamma*rho_p*0.5*(H-H0_p)**2*dx \
     + alpha*(H.dx(0)**2 + H.dx(1)**2)*dx
 
@@ -339,7 +339,13 @@ delta_I = derivative(I, H, phi)
 
 J = derivative(delta_I, H, dH)
 
-solve(delta_I==0, H, dbc, J=J)
+params = NonlinearVariationalSolver.default_parameters()
+params['newton_solver']['relaxation_parameter'] = .6
+params['newton_solver']['relative_tolerance'] = 1e-8
+params['newton_solver']['absolute_tolerance'] = 1e-9
+params['newton_solver']['maximum_iterations'] = 100
+
+solve(delta_I==0, H, dbc, J=J, solver_parameters=params)
 
 gamma_str = '_'.join(['gamma', str(gamma)])
 alpha_str = '_'.join(['alpha', str(alpha)])
@@ -450,7 +456,7 @@ create_variable("divU", project(div(U)),
 create_variable("cflux", project(sqrt((u_o*H)**2+(v_o*H)**2)),
                 long_name="magnitude of vertically-averaged flux",
                 units="m2 year-1")
-create_variable("uflux", project(v_o*H),
+create_variable("uflux", project(u_o*H),
                 long_name="x-component of vertically-averaged flux",
                 units="m2 year-1")
 create_variable("vflux", project((v_o*H)),

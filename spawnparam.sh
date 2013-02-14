@@ -7,15 +7,15 @@ SPAWNSCRIPT=spawnparam.sh
 
  SHEBANGLINE="#!/bin/bash"
 MPIQUEUELINE="#PBS -q shared"
- MPITIMELINE="#PBS -l walltime=06:00:00"
+ MPITIMELINE="#PBS -l walltime=00:20:00"
  MPISIZELINE="#PBS -l nodes=1:ppn=1"
   MPIOUTLINE="#PBS -j oe"
 SOURCEFILE="source /center/w/aschwand/FEniCS/share/fenics/fenics.conf"
 
-for gamma in 1 10 50
+for gamma in 0 1 2 5 10 20 50 100 200 500 1000
 do
 
-  for alpha in 0 10 100
+  for alpha in 0 
   do
 #      for project in "jakobshavn" "79N" "helheim"
       for project in "jakobshavn"
