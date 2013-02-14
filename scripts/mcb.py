@@ -246,7 +246,7 @@ nc.close()
 
 
 output_order = ("x", "y")
-filename = project_name + '_gimp_' + str(grid_spacing) + 'm.nc'
+filename = project_name + '_usurf_' + str(grid_spacing) + 'm.nc'
 nc = CDF(filename, 'r')
 xdim, ydim, zdim, tdim = get_dims(nc)
 S = np.squeeze(permute(nc.variables["usurf"], output_order=output_order))
