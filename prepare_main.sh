@@ -23,8 +23,8 @@
 # code provided by Jesse Johnson.
 
 # FL_FILE_TXT=${PROJECT}_flightlines.txt
-FL_FILE_TXT=${PROJECT}_cresis_flightlines_${YEARA}-${YEARE}.csv
-
+# FL_FILE_TXT=${PROJECT}_cresis_flightlines_${YEARA}-${YEARE}.csv
+FL_FILE_TXT=Jakobshavn_2007_2012_Composite_Flightlines_selected.csv
 # Well this takes a while...
 # But we leave it at that for now. In the longer run, we need a python 
 # script that downloads the data and puts it into a more appriate format
@@ -35,8 +35,8 @@ FL_FILE_TXT=${PROJECT}_cresis_flightlines_${YEARA}-${YEARE}.csv
 #    -mod_val $MOD_VAL -mod_field $MOD_FIELD > $FL_FILE_TXT
 
 FL_FILE_NC=${PROJECT}_flightlines_${GS}m.nc
-#python scripts/resample-cresis-data.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX \
-#    -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
+python scripts/resample-cresis-data.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX \
+    -c terminus_thickness.csv -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
 nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$FL_FILE_NC
 
 # nc2cdo.py is from pism/util/
@@ -50,7 +50,7 @@ ncks -A -v thk -x tmp_$FL_FILE_NC $FL_FILE_NC
 nc2cdo.py $FL_FILE_NC
 
 # prepare velocities
-source prepare_velocities.sh
+#source prepare_velocities.sh
 
 WARPOPTIONS="-overwrite -multi -r bilinear -te $X_MIN $Y_MIN $X_MAX $Y_MAX -tr $GS $GS -t_srs EPSG:$EPSG"
 
