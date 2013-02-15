@@ -43,7 +43,6 @@ nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 
 # it adds lat/lon, but also the 4 grid corners of each cell, needed for
 # conservative remapping via CDO.
 
-# TODO figure out if we really need this.
 cdo setmisstoc,-9999. -selvar,thk tmp_$FL_FILE_NC $FL_FILE_NC
 ncatted -a _FillValue,,d,, $FL_FILE_NC
 ncks -A -v thk -x tmp_$FL_FILE_NC $FL_FILE_NC

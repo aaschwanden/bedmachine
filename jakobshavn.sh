@@ -43,11 +43,16 @@ FL_FILE_TXT=Jakobshavn_2007_2012_Composite_Flightlines_selected.csv
 FL_FILE_NC=${PROJECT}_flightlines_${YEAR}_${GS}m.nc
 FL1985_FILE_NC=${PROJECT}_flightlines_1985_${GS}m.nc
 python scripts/resample-cresis-data.py -g $GS --bounds $X_MIN $X_MAX $Y_MIN $Y_MAX \
-    -c terminus_thickness.csv -n $NN $FL_FILE_TXT $FL_FILE_NC
-nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' $FL_FILE_NC
+    -c terminus_thickness.csv -n $NN $FL_FILE_TXT tmp_$FL_FILE_NC
+nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$FL_FILE_NC
 
-#source prepare_velocities.sh
-#source prepare_velocities_1985.sh
+cdo setmisstoc,-9999. -selvar,thk tmp_$FL_FILE_NC $FL_FILE_NC
+ncatted -a _FillValue,,d,, $FL_FILE_NC
+ncks -A -v thk -x tmp_$FL_FILE_NC $FL_FILE_NC
+nc2cdo.py $FL_FILE_NC
+
+source prepare_velocities.sh
+source prepare_velocities_1985.sh
 
 WARPOPTIONS="-overwrite -multi -r bilinear -te $X_MIN $Y_MIN $X_MAX $Y_MAX -tr $GS $GS -t_srs EPSG:$EPSG"
 
@@ -141,4 +146,5 @@ ncatted -a grid_mapping,thk,o,c,"mapping" tmp_${FL1985_FILE_NC}
 nccopy $FL_FILE_NC $FL1985_FILE_NC
 ncks -A -v thk tmp_${FL1985_FILE_NC} $FL1985_FILE_NC
 ncatted -a _FillValue,thk,o,f,-2e9 $FL1985_FILE_NC
-# source prepare_additional.sh
+
+source prepare_additional.sh
