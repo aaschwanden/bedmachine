@@ -404,6 +404,7 @@ nc = CDF('/'.join([project_name, output_filename]), 'w')
 
 nc.createDimension("y", size=y.shape[0])
 nc.createDimension("x", size=x.shape[0])
+
 x_var = nc.createVariable("x", 'f', dimensions=("x",))
 x_var.units = "m";
 x_var.long_name = "easting"

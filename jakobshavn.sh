@@ -51,8 +51,8 @@ ncatted -a _FillValue,,d,, $FL_FILE_NC
 ncks -A -v thk -x tmp_$FL_FILE_NC $FL_FILE_NC
 nc2cdo.py $FL_FILE_NC
 
-source prepare_velocities.sh
-source prepare_velocities_1985.sh
+#source prepare_velocities.sh
+#source prepare_velocities_1985.sh
 
 WARPOPTIONS="-overwrite -multi -r bilinear -te $X_MIN $Y_MIN $X_MAX $Y_MAX -tr $GS $GS -t_srs EPSG:$EPSG"
 
@@ -135,7 +135,7 @@ ncatted -a grid_mapping,usurf,o,c,"mapping" tmp_$USURF1985_FILE_NC
 fill_missing.py -v usurf -e 1.5 -f tmp_$USURF1985_FILE_NC -o $USURF1985_FILE_NC
 
 USURFDIFF_FILE_NC=${PROJECT}_usurf_2008-1985_${GS}m.nc
-cdo sub $USURF2008_FILE_NC tmp_$USURF1985_FILE_NC $USURFDIFF_FILE_NC
+cdo sub $USURF2008_FILE_NC $USURF1985_FILE_NC $USURFDIFF_FILE_NC
 ncks -A -v x,y,mapping $FL_FILE_NC $USURFDIFF_FILE_NC
 ncatted -a grid_mapping,usurf,o,c,"mapping" $USURFDIFF_FILE_NC
 nc2cdo.py $USURFDIFF_FILE_NC
