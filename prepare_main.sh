@@ -49,7 +49,7 @@ ncks -A -v thk -x tmp_$FL_FILE_NC $FL_FILE_NC
 nc2cdo.py $FL_FILE_NC
 
 # prepare velocities
-#source prepare_velocities.sh
+source prepare_velocities.sh
 
 WARPOPTIONS="-overwrite -multi -r bilinear -te $X_MIN $Y_MIN $X_MAX $Y_MAX -tr $GS $GS -t_srs EPSG:$EPSG"
 
