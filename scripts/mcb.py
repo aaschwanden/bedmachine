@@ -14,27 +14,8 @@ import scitools.BoxField
 
 from argparse import ArgumentParser
 
-
-class DataOutput:
-    def __init__(self,directory):
-        if directory[-1]=='/':
-            self.directory = directory
-        else:
-            self.directory = directory+'/'
-            
-    def write_dictionary_of_files(self,d,extension='pvd'):
-        """ Looking for a dictionary d of data to save. The keys are the file 
-        names, and the values are the data fields to be stored. Also takes an
-        optional extension to determine if it is pvd or xml output."""
-        for filename in d:
-            file_handle = File(self.directory+filename+'.'+extension)
-            file_handle<<d[filename]
-    def write_one_file(self,name,data,extension='pvd'):
-        file_handle = File(self.directory+name+'.'+extension)
-        file_handle<<data
-
-
-def create_variable(var_name, f, long_name=None, standard_name=None, units=None, fill_value=None, dimensions=None):
+def create_variable(var_name, f, long_name=None, standard_name=None,
+                    units=None, fill_value=None, dimensions=None):
     var = nc.createVariable(var_name, np.double, dimensions)
     if long_name is not None:
         var.long_name = long_name
@@ -45,8 +26,8 @@ def create_variable(var_name, f, long_name=None, standard_name=None, units=None,
     var.grid_mapping = "mapping"
     if fill_value is not None:
         var._FillValue = fill_value
-    #    var[0, :] = evaluate_regular_grid(f, x, y)
-    var[0,:] = f
+    fb = scitools.BoxField.dolfin_function2BoxField(f, mesh, (MM,NN))
+    var[0,:] = fb.values.T
 
 
 def generate_expression_from_gridded_data(x, y, var, method='bil'):
@@ -164,12 +145,16 @@ parser.add_argument("-a","--alpha", dest="alpha", type=float,
 parser.add_argument("-g","--gamma", dest="gamma", type=float,
                     help='''Misfit penalty''',
                     default=2.0)
+parser.add_argument("-s","--velocity_scale", dest="velocity_scale", type=float,
+                    help='''Scale the surface velocities''',
+                    default=1.0)
 parser.add_argument("--grid_spacing", dest="grid_spacing", type=int,
                     help='''Grid spacing in meters.''',
                     default=500)
 parser.add_argument("-p","--project", dest="project_name",
                     help='''Name of the project which determines filenames together with grid size.''',
                     default='jakobshavn')
+
 options = parser.parse_args()
 scale_factor = options.scale_factor
 do_dhdt = options.do_dhdt
@@ -181,7 +166,8 @@ grid_spacing = options.grid_spacing
 gamma = options.gamma
 # Regularization parameter (penalty on the gradient of the solution)
 alpha = options.alpha
-
+# Velocity scale
+velocity_scale = options.velocity_scale
 # minimum ice thickness
 thk_min = 10
 
@@ -257,8 +243,8 @@ nc.close()
 set_log_level(PROGRESS)
 
 extend = 0
-MM = int(np.ceil(M * scale_factor))
-NN = int(np.ceil(N * scale_factor))
+MM = int(np.ceil(M * scale_factor)) - 1
+NN = int(np.ceil(N * scale_factor)) - 1
 x_scaled = np.linspace(xmin - extend, xmax + extend, MM)
 y_scaled = np.linspace(ymin - extend, ymax + extend, NN)
 mesh = RectangleMesh(np.float(xmin) - extend, np.float(ymin - extend),
@@ -277,8 +263,8 @@ Hcresis_p = project(generate_expression_from_gridded_data(x, y, Hcresis), func_s
 Hsr_p = project(generate_expression_from_gridded_data(x, y, Hsr), func_space)
 Humt_p = project(generate_expression_from_gridded_data(x, y, Humt), func_space)
 
-u_o = project(generate_expression_from_gridded_data(x, y, uvel), func_space)
-v_o = project(generate_expression_from_gridded_data(x, y, vvel), func_space)
+u_o = project(generate_expression_from_gridded_data(x, y, uvel), func_space) * velocity_scale
+v_o = project(generate_expression_from_gridded_data(x, y, vvel), func_space) * velocity_scale
 
 if do_dhdt:
     output_order = ("x", "y")
@@ -343,8 +329,8 @@ J = derivative(delta_I, H, dH)
 
 params = NonlinearVariationalSolver.default_parameters()
 params['newton_solver']['relaxation_parameter'] = .6
-params['newton_solver']['relative_tolerance'] = 1e-10
-params['newton_solver']['absolute_tolerance'] = 1e-12
+params['newton_solver']['relative_tolerance'] = 1e-8
+params['newton_solver']['absolute_tolerance'] = 1e-9
 params['newton_solver']['maximum_iterations'] = 100
 
 solve(delta_I==0, H, dbc, J=J, solver_parameters=params)
@@ -352,56 +338,22 @@ solve(delta_I==0, H, dbc, J=J, solver_parameters=params)
 gamma_str = '_'.join(['gamma', str(gamma)])
 alpha_str = '_'.join(['alpha', str(alpha)])
 gs_str = str(grid_spacing) + 'm'
+vel_str = '_'.join(['vscale', str(velocity_scale)])
 
 import os
 if not os.path.exists(project_name):
     os.makedirs(project_name)
 
 out_dir = project_name + '/'
-## do = DataOutput(out_dir)
-## data_out = {'_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'mcb_bed']) : project(S_p-H),
-##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'mcb_flux_div']) : project(div(U*H)),
-##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'cresis_bed']) : project(S_p-Hcresis_p),
-##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'cresis_flux_div_obs']) : project(div(U*Hcresis_p)),
-##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'umt_bed']) : project(S_p-Humt_p),
-##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'umt_flux_div_obs']) : project(div(U*Humt_p)),
-##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'searise_bed']) : project(S_p-Hsr_p),
-##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'searise_flux_div_obs']) : project(div(U*Hsr_p)),
-##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'U']) : Unorm,
-##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'divU']) : project(div(U)),
-##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'rho']) : rho_p,
-##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'smb']) : smb_p,
-##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'S']) : S_p,
-##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'H0']) : H0_p,
-##             '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str, 'thk']) : H,
-##             }
-## do.write_dictionary_of_files(data_out)
-
-
-def evaluate_regular_grid(f, x, y):
-    fa = np.zeros((y.size, x.size))
-    parameters['allow_extrapolation']=True
-    for i, xs in enumerate(x):
-        for j, ys in enumerate(y):
-            try:
-                fa[j,i] = f(xs,ys)
-            except:
-                print "Point not in mesh, skipping."
-                pass
-    return fa
-
-
-output_filename = '_'.join([project_name, gs_str, alpha_str, gamma_str, dHdt_str, bmelt_str,]) + '.nc'
+output_filename = '_'.join([project_name, gs_str, alpha_str,
+                            gamma_str, vel_str, dHdt_str, bmelt_str,]) + '.nc'
 
 mesh_out = RectangleMesh(np.float(xmin), np.float(ymin),
                          np.float(xmax), np.float(ymax),
                          M, N)
 
-func_space_out =  FunctionSpace(mesh_out, "CG", 1)
-func_space_dg_out =  FunctionSpace(mesh_out, "DG", 1)
 
 print "Creating output file..."
-
 nc = CDF('/'.join([project_name, output_filename]), 'w')
 
 nc.createDimension("y", size=y.shape[0])
@@ -441,55 +393,53 @@ mapping.units = "m"
 
 dimensions = ("time", "y", "x")
 
-create_variable("thk", scitools.BoxField.dolfin_function2BoxField(H, mesh, (M,N)).values,
+create_variable("thk", project(H),
                 long_name="land ice thickness from mass conservation",
                 standard_name="land_ice_thickness",
                 units="m", dimensions=dimensions)
-create_variable("topg", scitools.BoxField.dolfin_function2BoxField(S_p-H, mesh, (M,N)).values,
+create_variable("topg", project(S_p-H),
                 long_name="bedrock surface elevation from mass conservation",
                 standard_name="bedrock_altitude",
                 units="m", dimensions=dimensions)
-create_variable("U_mag", project(U),
+create_variable("U_mag", project(Unorm),
                 long_name="magnitude of horizontal surface velocities",
                 units="m year-1", dimensions=dimensions)
-create_variable("divHU", scitools.BoxField.dolfin_function2BoxField(div(H*U), mesh, (M,N)).values,
+create_variable("divHU", project(div(H*U)),
                 long_name="flux divergence using mass conservation",
                 units="m year-1", dimensions=dimensions)
-create_variable("divHU_cresis", scitools.BoxField.dolfin_function2BoxField(div(H_cresis_p*U), mesh, (M,N)).values, long_name="flux divergence cresis",
+create_variable("divHU_cresis", project(div(Hcresis_p*U)), long_name="flux divergence cresis",
                 units="m year-1", dimensions=dimensions)
-create_variable("divHU_umt", scitools.BoxField.dolfin_function2BoxField(div(H_umt*U), mesh, (M,N)).values, long_name="flux divergence UMT",
+create_variable("divHU_umt", project(div(Humt_p*U)), long_name="flux divergence UMT",
                 units="m year-1", dimensions=dimensions)
-create_variable("divHU_searise", scitools.BoxField.dolfin_function2BoxField(div(H_sr*U), mesh, (M,N)).values, long_name="flux divergence SeaRISE",
+create_variable("divHU_searise", project(div(Hsr_p*U)), long_name="flux divergence SeaRISE",
                 units="m year-1", dimensions=dimensions)
-create_variable("divU", pscitools.BoxField.dolfin_function2BoxField(div(U), mesh, (M,N)).values,
+create_variable("divU", project(div(U)),
                 long_name="divergence of velocity field",
                 units="year-1", dimensions=dimensions)
-create_variable("cflux", scitools.BoxField.dolfin_function2BoxField(sqrt((u_o*H)**2+(v_o*H)**2).values, mesh, (M,N)),
+create_variable("cflux", project(sqrt((u_o*H)**2+(v_o*H)**2)),
                 long_name="magnitude of vertically-averaged flux",
                 units="m2 year-1", dimensions=dimensions)
-create_variable("uflux", scitools.BoxField.dolfin_function2BoxField(u_o*H, mesh, (M,N)),
+create_variable("uflux", project(u_o*H),
                 long_name="x-component of vertically-averaged flux",
                 units="m2 year-1", dimensions=dimensions)
-create_variable("vflux", scitools.BoxField.dolfin_function2BoxField(v_o*H, mesh, (M,N)),
+create_variable("vflux", project((v_o*H)),
                 long_name="y-component of vertically-averaged flux",
                 units="m2 year-1", dimensions=dimensions)
 
 # Save the projection information:
 nc.projection = proj4_str
-
 nc.Conventions = "CF-1.5"
 
 # writing global attributes
-## import time
-## script_command = ' '.join([time.ctime(), ':', __file__.split('/')[-1],
-##                            ' '.join([str(l) for l in args])])
-## nc.history = script_command
+import time
+va = vars(options)
+script_command = ' '.join([time.ctime(), ':', __file__.split('/')[-1],
+                           ' '.join([''.join(['--', str(l), ' ',str(va[l])]) for l in va])
+])
+nc.history = script_command
 
 print "writing to %s ...\n" % output_filename
 print "run nc2cdo.py to add lat/lon variables" 
 nc.close()
 
 
-## H_out = interpolate(H, func_space_out)
-## H_box = scitools.BoxField.dolfin_function2BoxField(H_out, mesh_out, (M,N))
-## H_values = H_box.values
