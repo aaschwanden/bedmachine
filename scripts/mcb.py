@@ -319,7 +319,7 @@ dH = TrialFunction(func_space)
 phi = TestFunction(func_space)
 
 # Objective function
-I = (div(U*H) - smb_p + bmelt_p + dHdt_p)**(2)*dx \
+I = 0.5*(div(U*H) - smb_p + bmelt_p + dHdt_p)**(2)*dx \
     + gamma*rho_p*0.5*(H-H0_p)**2*dx \
     + alpha*(H.dx(0)**2 + H.dx(1)**2)*dx
 
