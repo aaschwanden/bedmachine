@@ -224,6 +224,13 @@ xdim, ydim, zdim, tdim = get_dims(nc)
 Humt = np.squeeze(permute(nc.variables["thk"], output_order=output_order))
 nc.close()
 
+output_order = ("x", "y")
+filename = project_name + '_bamber2013_' + str(grid_spacing) + 'm.nc'
+nc = CDF(filename, 'r')
+xdim, ydim, zdim, tdim = get_dims(nc)
+Hbam13 = np.squeeze(permute(nc.variables["thk"], output_order=output_order))
+nc.close()
+
 output_order = ("time", "x", "y")
 filename = project_name + '_searise_v1.1_' + str(grid_spacing) + 'm.nc'
 nc = CDF(filename, 'r')
@@ -262,6 +269,7 @@ rho_p = project(generate_expression_from_gridded_data(x, y, rho, method="nearest
 Hcresis_p = project(generate_expression_from_gridded_data(x, y, Hcresis), func_space)
 Hsr_p = project(generate_expression_from_gridded_data(x, y, Hsr), func_space)
 Humt_p = project(generate_expression_from_gridded_data(x, y, Humt), func_space)
+Hbam13_p = project(generate_expression_from_gridded_data(x, y, Hbam13), func_space)
 
 u_o = project(generate_expression_from_gridded_data(x, y, uvel), func_space) * velocity_scale
 v_o = project(generate_expression_from_gridded_data(x, y, vvel), func_space) * velocity_scale
@@ -410,6 +418,8 @@ create_variable("divHU", project(div(H*U)),
 create_variable("divHU_cresis", project(div(Hcresis_p*U)), long_name="flux divergence cresis",
                 units="m year-1", dimensions=dimensions)
 create_variable("divHU_umt", project(div(Humt_p*U)), long_name="flux divergence UMT",
+                units="m year-1", dimensions=dimensions)
+create_variable("divHU_bamber2013", project(div(Hbam13_p*U)), long_name="flux divergence Bamber 2013",
                 units="m year-1", dimensions=dimensions)
 create_variable("divHU_searise", project(div(Hsr_p*U)), long_name="flux divergence SeaRISE",
                 units="m year-1", dimensions=dimensions)

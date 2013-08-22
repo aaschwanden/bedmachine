@@ -84,5 +84,6 @@ do
   done
 done
 
-exit
+run ~/base/pypismtools/scripts/profile-plot.py -o profile_s8_gamma -v topg --labels 'reference,1,2,5,10,100,1000' --figure_title S8 profile_s8_jakobshavn_cresis_250m.nc jakobshavn/profile_s8_jakobshavn_250m_alpha_0.0_gamma_1.0_vscale_1.0_nodhdt_nobmelt.nc jakobshavn/profile_s8_jakobshavn_250m_alpha_0.0_gamma_2.0_vscale_1.0_nodhdt_nobmelt.nc jakobshavn/profile_s8_jakobshavn_250m_alpha_0.0_gamma_5.0_vscale_1.0_nodhdt_nobmelt.nc jakobshavn/profile_s8_jakobshavn_250m_alpha_0.0_gamma_10.0_vscale_1.0_nodhdt_nobmelt.nc jakobshavn/profile_s8_jakobshavn_250m_alpha_0.0_gamma_100.0_vscale_1.0_nodhdt_nobmelt.nc jakobshavn/profile_s8_jakobshavn_250m_alpha_0.0_gamma_1000.0_vscale_1.0_nodhdt_nobmelt.nc
 
+run ~/base/pypismtools/scripts/profile-plot.py -o profile_str_gamma -v topg --labels 'reference,1,2,5,10,100,1000' --figure_title STR profile_str_jakobshavn_cresis_250m.nc jakobshavn/profile_str_jakobshavn_250m_alpha_0.0_gamma_1.0_vscale_1.0_nodhdt_nobmelt.nc jakobshavn/profile_str_jakobshavn_250m_alpha_0.0_gamma_2.0_vscale_1.0_nodhdt_nobmelt.nc jakobshavn/profile_str_jakobshavn_250m_alpha_0.0_gamma_5.0_vscale_1.0_nodhdt_nobmelt.nc jakobshavn/profile_str_jakobshavn_250m_alpha_0.0_gamma_10.0_vscale_1.0_nodhdt_nobmelt.nc jakobshavn/profile_str_jakobshavn_250m_alpha_0.0_gamma_100.0_vscale_1.0_nodhdt_nobmelt.nc jakobshavn/profile_str_jakobshavn_250m_alpha_0.0_gamma_1000.0_vscale_1.0_nodhdt_nobmelt.nc
