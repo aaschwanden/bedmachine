@@ -53,6 +53,8 @@ nc2cdo.py $FL_FILE_NC
 
 #source prepare_velocities.sh
 #source prepare_velocities_1985.sh
+#source prepare_bmelt.sh
+
 
 WARPOPTIONS="-overwrite -multi -r bilinear -te $X_MIN $Y_MIN $X_MAX $Y_MAX -tr $GS $GS -t_srs EPSG:$EPSG"
 
@@ -103,25 +105,25 @@ ncap2 -O -s "where(thk==-9999.) thk=Band1;" $FL_FILE_NC $FL_FILE_NC
 ncrename -O -v Band1,thk $CRESIS_FILE_NC $CRESIS_FILE_NC
 
 # GIMP DEM
-GIMP=gimpdem_90m
-GIMP_FILE_NC=${PROJECT}_gimp_${GS}m.nc
-wget -nc ftp://ftp-bprc.mps.ohio-state.edu/downloads/gdg/gimpdem/$GIMP.tif.zip
-unzip -o $GIMP.tif.zip
-gdal_translate -projwin  $X_MIN $Y_MAX $X_MAX $Y_MIN $GIMP.tif ${PROJECT}_${GIMP}.tif
-gdaldem hillshade -s 0.5 ${PROJECT}_${GIMP}.tif ${PROJECT}_${GIMP}_hillshade.tif
-gdalwarp $WARPOPTIONS -of netCDF $GIMP.tif tmp_$GIMP_FILE_NC
-ncrename -v Band1,usurf tmp_$GIMP_FILE_NC
-nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$GIMP_FILE_NC
-if [ [$NN == 1] ] ; then
-  REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC tmp_$GIMP_FILE_NC $GIMP_FILE_NC
-else
-  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC tmp_$GIMP_FILE_NC $GIMP_FILE_NC
-fi
-ncks -A -v x,y,mapping $FL_FILE_NC $GIMP_FILE_NC
-ncatted -a grid_mapping,usurf,o,c,"mapping"   $GIMP_FILE_NC
+#GIMP=gimpdem_90m
+#GIMP_FILE_NC=${PROJECT}_gimp_${GS}m.nc
+#wget -nc ftp://ftp-bprc.mps.ohio-state.edu/downloads/gdg/gimpdem/$GIMP.tif.zip
+#unzip -o $GIMP.tif.zip
+#gdal_translate -projwin  $X_MIN $Y_MAX $X_MAX $Y_MIN $GIMP.tif ${PROJECT}_${GIMP}.tif
+#gdaldem hillshade -s 0.5 ${PROJECT}_${GIMP}.tif ${PROJECT}_${GIMP}_hillshade.tif
+#gdalwarp $WARPOPTIONS -of netCDF $GIMP.tif tmp_$GIMP_FILE_NC
+#ncrename -v Band1,usurf tmp_$GIMP_FILE_NC
+#nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$GIMP_FILE_NC
+#if [ [$NN == 1] ] ; then
+#  REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC tmp_$GIMP_FILE_NC $GIMP_FILE_NC
+#else
+#  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC tmp_$GIMP_FILE_NC $GIMP_FILE_NC
+#fi
+#ncks -A -v x,y,mapping $FL_FILE_NC $GIMP_FILE_NC
+#ncatted -a grid_mapping,usurf,o,c,"mapping" -a units,usurf,o,c,"m" -a long_name,usurf,o,c,"ice upper surface elevation" -a standard_name,usurf,o,c,"surface_altitude" $GIMP_FILE_NC
 
 USURF2008_FILE_NC=${PROJECT}_usurf_${YEAR}_${GS}m.nc
-nccopy ${GIMP_FILE_NC} ${USURF2008_FILE_NC}
+ncks -O -v thk -x  ${CRESIS_FILE_NC} ${USURF2008_FILE_NC}
 
 IN_DEM=DEM_5.5_july_24_85.nc
 USURF1985_FILE_NC=${PROJECT}_usurf_1985_${GS}m.nc
@@ -131,7 +133,7 @@ else
   REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC $IN_DEM tmp_$USURF1985_FILE_NC
 fi
 ncks -A -v x,y,mapping $FL_FILE_NC tmp_$USURF1985_FILE_NC
-ncatted -a grid_mapping,usurf,o,c,"mapping" tmp_$USURF1985_FILE_NC
+ncatted -a grid_mapping,usurf,o,c,"mapping" -a units,usurf,o,c,"m"  -a long_name,usurf,o,c,"ice upper surface elevation" -a standard_name,usurf,o,c,"surface_altitude" tmp_$USURF1985_FILE_NC
 fill_missing.py -v usurf -e 1.5 -f tmp_$USURF1985_FILE_NC -o $USURF1985_FILE_NC
 
 USURFDIFF_FILE_NC=${PROJECT}_usurf_2008-1985_${GS}m.nc
@@ -147,4 +149,4 @@ nccopy $FL_FILE_NC $FL1985_FILE_NC
 ncks -A -v thk tmp_${FL1985_FILE_NC} $FL1985_FILE_NC
 ncatted -a _FillValue,thk,o,f,-2e9 $FL1985_FILE_NC
 
-source prepare_additional.sh
+#source prepare_additional.sh
