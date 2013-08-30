@@ -313,11 +313,16 @@ utol = 5.0
 
 # Is this correct??
 def inside(x, on_boundary):
-  return (Unorm(x[0],x[1]) < utol) or (on_boundary and \
+  return (Unorm(x[0],x[1]) < utol)
+
+def boundary(x, on_boundary):
+  return (on_boundary and \
                        (x[0] < DOLFIN_EPS or x[1] < DOLFIN_EPS or \
                        (x[0] > 0.5 - DOLFIN_EPS and x[1] > 0.5 - DOLFIN_EPS)))
 
-dbc = DirichletBC(func_space, Hcresis_p, inside)
+dbc_boundary = DirichletBC(func_space, Hcresis_p, boundary)
+dbc_inside = DirichletBC(func_space, 400., inside)
+dbc = [dbc_boundary, dbc_inside]
 
 # Solution and Trial function
 H = Function(func_space)
