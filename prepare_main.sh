@@ -31,7 +31,7 @@ FL_FILE_TXT=Jakobshavn_2007_2012_Composite_Flightlines_selected.csv
 # than ASCII.
 
 # python scripts/general_query.py -table cresis_gr -fields "thick,quality,frame" -year_range $YEARA $YEARE \
-#    -epsg $EPSG -and_clause "(quality>-1 or quality<5) and (thick>-9999)" -box $LON_MIN $LON_MAX $LAT_MIN $LAT_MAX \
+#    -epsg $EPSG -and_clause "(quality>-1 and quality<5) and (thick>-9999)" -box $LON_MIN $LON_MAX $LAT_MIN $LAT_MAX \
 #    -mod_val $MOD_VAL -mod_field $MOD_FIELD > $FL_FILE_TXT
 
 FL_FILE_NC=${PROJECT}_flightlines_${GS}m.nc

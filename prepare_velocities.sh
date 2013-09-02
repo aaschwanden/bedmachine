@@ -2,7 +2,8 @@
 
 set -x -e
 
-for VYEARS in "2008_2009" "2007_2008" "2006_2007"; do
+#for VYEARS in "2008_2009" "2007_2008" "2006_2007"; do
+for VYEARS in "2008_2009"; do
 # remap surface velocities, select area frist to speed
 # things up a bit
     VELIN_FILE=surf_vels_500m_${VYEARS}.nc
@@ -18,5 +19,7 @@ for VYEARS in "2008_2009" "2007_2008" "2006_2007"; do
     fi
     ncks -A -v x,y,mapping $FL_FILE_NC $VELOUT_FILE
     ncatted -a grid_mapping,us,o,c,"mapping" -a grid_mapping,vs,o,c,"mapping" -a grid_mapping,magnitude,o,c,"mapping" $VELOUT_FILE
+    python scripts/scalar_within_poly.py -s 0 -v magnitude,us,vs ~/data/data_sets/GreenlandFlightlines/ice_grounding_line.shp $VELOUT_FILE
+
 done
 

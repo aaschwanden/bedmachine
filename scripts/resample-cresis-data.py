@@ -53,8 +53,8 @@ radius_of_influence = grid_spacing  # m
 # read in data
 # we could make this more flexible by only reading lon, lat and then use
 # proj4 to convert to user-specified coordinate reference system.
-#THICK,LAT,LON = np.loadtxt(data_file, unpack=True, skiprows=1, delimiter=',', usecols=(2,5,6))
-THICK,LAT,LON = np.loadtxt(data_file, unpack=True, skiprows=1, delimiter=',', usecols=(4,7,8))
+THICK,LAT,LON = np.loadtxt(data_file, unpack=True, skiprows=1, delimiter=',', usecols=(2,5,6))
+#THICK,LAT,LON = np.loadtxt(data_file, unpack=True, skiprows=1, delimiter=',', usecols=(4,7,8))
 if constraints:
     lon_c, lat_c, thk_c = np.loadtxt(constraints, unpack=True, skiprows=1, delimiter=',', usecols=(0,1,3))
     LON = np.hstack((LON, lon_c))

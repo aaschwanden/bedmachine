@@ -2,6 +2,7 @@
 
 # Copyright (C) 2013 Andy Aschwanden
 
+from sys import stderr
 from argparse import ArgumentParser
 try:
     from netCDF4 import Dataset as NC
@@ -56,8 +57,10 @@ except:
     import sys
     sys.exit()
 
+
 for var in variables:
-    print("Processing variable %s" % var)
+    stderr.write("Processing variable %s, precent done: " % var)
+    stderr.write("000")
     try:
         data = nc.variables[var]
     except:
@@ -65,26 +68,41 @@ for var in variables:
                   % var))
         import sys
         sys.exit()
+
+    counter = 0
     ndim = data.ndim
+    
     if (ndim==2):
-        for m in range(0, data.shape[0]):
-            for n in range(0, data.shape[1]):
+        M = data.shape[0]
+        N = data.shape[1]
+        max_counter = M*N
+        for m in range(0, M):
+            for n in range(0, N):
                 x = lon[m,n]
                 y = lat[m,n]
                 wkt = "POINT(%f %f)" % (x,y)
                 point = ogr.CreateGeometryFromWkt(wkt)
                 if feature.GetGeometryRef().Contains(point):
                     data[m,n] = scalar_value
+                stderr.write("\b\b\b%03d" % (100.0 * counter / max_counter))
+                counter += 1
+        
     elif (ndim==3):
-        for k in range(0, data.shape[0]):
-            for m in range(0, data.shape[1]):
-                for n in range(0, data.shape[2]):
+        K = data.shape[0]
+        M = data.shape[1]
+        N = data.shape[2]
+        max_counter = K*M*N
+        for k in range(0, K):
+            for m in range(0, M):
+                for n in range(0, N):
                     x = lon[m,n]
                     y = lat[m,n]
                     wkt = "POINT(%f %f)" % (x,y)
                     point = ogr.CreateGeometryFromWkt(wkt)
                     if feature.GetGeometryRef().Contains(point):
                         data[k,m,n] = scalar_value
+                    stderr.write("\b\b\b%03d" % (100.0 * counter / max_counter))
+                    counter += 1
     else:
         print(("ERROR: %i dimensions currently not supported... ending..."
                % ndim))

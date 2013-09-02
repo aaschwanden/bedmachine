@@ -320,9 +320,22 @@ def boundary(x, on_boundary):
                        (x[0] < DOLFIN_EPS or x[1] < DOLFIN_EPS or \
                        (x[0] > 0.5 - DOLFIN_EPS and x[1] > 0.5 - DOLFIN_EPS)))
 
-dbc_boundary = DirichletBC(func_space, Hcresis_p, boundary)
-dbc_inside = DirichletBC(func_space, 400., inside)
-dbc = [dbc_boundary, dbc_inside]
+def bc_area(x, on_boundary):
+  return (Unorm(x[0],x[1]) < utol) or (on_boundary and \
+                       (x[0] < DOLFIN_EPS or x[1] < DOLFIN_EPS or \
+                       (x[0] > 0.5 - DOLFIN_EPS and x[1] > 0.5 - DOLFIN_EPS)))
+
+def bc_upstream(x, on_boundary):
+    return on_boundary and (x[0] - 1 < DOLFIN_EPS)
+            
+
+## dbc_boundary = DirichletBC(func_space, Hcresis_p, boundary)
+## dbc_inside = DirichletBC(func_space, 400., inside)
+## dbc = [dbc_boundary, dbc_inside]
+
+dbc_upstream = DirichletBC(func_space, Hcresis_p, bc_upstream)
+dbc_area = DirichletBC(func_space, Hcresis_p, bc_area)
+dbc = [dbc_area, dbc_upstream]
 
 # Solution and Trial function
 H = Function(func_space)
@@ -431,6 +444,9 @@ create_variable("divHU_searise", project(div(Hsr_p*U)), long_name="flux divergen
 create_variable("divU", project(div(U)),
                 long_name="divergence of velocity field",
                 units="year-1", dimensions=dimensions)
+create_variable("res_flux", project(div(U*H) - smb_p + bmelt_p + dHdt_p),
+                long_name="residual flux",
+                units="m2 year-1", dimensions=dimensions)
 create_variable("cflux", project(sqrt((u_o*H)**2+(v_o*H)**2)),
                 long_name="magnitude of vertically-averaged flux",
                 units="m2 year-1", dimensions=dimensions)
@@ -453,7 +469,7 @@ script_command = ' '.join([time.ctime(), ':', __file__.split('/')[-1],
 ])
 nc.history = script_command
 
-print "writing to %s ...\n" % output_filename
+print "writing to %s ...\n" % '/'.join([project_name, output_filename])
 print "run nc2cdo.py to add lat/lon variables" 
 nc.close()
 
