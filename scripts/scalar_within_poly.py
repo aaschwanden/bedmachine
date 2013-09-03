@@ -15,7 +15,7 @@ parser = ArgumentParser()
 parser.description = "All values within a polygon defined by a shapefile are replaced by a scalar value."
 parser.add_argument("FILE", nargs=2)
 parser.add_argument("-s", "--scalar_value",dest="scalar_value", type=float,
-                  help="Replace with this value",default=0)
+                  help="Replace with this value",default=0.)
 parser.add_argument("-v", "--variables",dest="variables",
                   help="Comma separated list of variables.",default=['bmelt'])
 
@@ -59,8 +59,6 @@ except:
 
 
 for var in variables:
-    stderr.write("Processing variable %s, precent done: " % var)
-    stderr.write("000")
     try:
         data = nc.variables[var]
     except:
@@ -71,7 +69,10 @@ for var in variables:
 
     counter = 0
     ndim = data.ndim
-    
+
+    stderr.write("\n  - Processing variable %s, precent done: " % var)
+    stderr.write("000")
+
     if (ndim==2):
         M = data.shape[0]
         N = data.shape[1]
@@ -106,4 +107,4 @@ for var in variables:
     else:
         print(("ERROR: %i dimensions currently not supported... ending..."
                % ndim))
-    #nc.close()
+nc.close()

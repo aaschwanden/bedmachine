@@ -63,9 +63,16 @@ ncatted -a _FillValue,,d,, $FL_FILE_NC
 ncks -A -v thk -x tmp_$FL_FILE_NC $FL_FILE_NC
 nc2cdo.py $FL_FILE_NC
 
-source prepare_velocities.sh
-source prepare_velocities_1985.sh
-source prepare_bmelt.sh
+MASK_FILE_NC=${PROJECT}_mask_${GS}m.nc
+ncap2 -O -s "mask=thk*0;" $FL_FILE_NC $MASK_FILE_NC
+python scripts/scalar_within_poly.py -s 1 -v mask ~/data/data_sets/GreenlandFlightlines/ice_thickness_zero.shp $MASK_FILE_NC
+python scripts/scalar_within_poly.py -s 1 -v mask ~/data/data_sets/GreenlandFlightlines/ice_thickness_fjord.shp $MASK_FILE_NC
+ncks -O -v thk,rho -x $MASK_FILE_NC $MASK_FILE_NC
+
+ 
+#source prepare_velocities.sh
+#source prepare_velocities_1985.sh
+#source prepare_bmelt.sh
 
 
 WARPOPTIONS="-overwrite -multi -r bilinear -te $X_MIN $Y_MIN $X_MAX $Y_MAX -tr $GS $GS -t_srs EPSG:$EPSG"
@@ -85,6 +92,7 @@ ncks -A -v x,y,mapping $FL_FILE_NC $SPOT_FILE_NC
 CRESIS=${PROJECTC}_${CRESIS_YEARS}
 CRESIS_FILE_ZIP=${CRESIS}_Composite.zip
 CRESIS_FILE_NC=${PROJECT}_cresis_${YEAR}_${GS}m.nc
+CRESIS1985_FILE_NC=${PROJECT}_cresis_1985_${GS}m.nc
 #wget -nc --no-check-certificate https://data.cresis.ku.edu/data/grids/$CRESIS_FILE_ZIP
 #unzip -o $CRESIS_FILE_ZIP
 gdalwarp $WARPOPTIONS -of netCDF ${CRESIS}_Composite/grids/${PROJECT}_${CRESIS_YEARS}_composite_thickness.txt thk_$CRESIS_FILE_NC
@@ -109,6 +117,9 @@ cdo -O setmisstoc,-9999. tmp2_$CRESIS_FILE_NC $CRESIS_FILE_NC
 ncatted -a _FillValue,,d,, $CRESIS_FILE_NC
 ncks -A -v x,y,mapping $FL_FILE_NC $CRESIS_FILE_NC
 ncatted -a grid_mapping,Band1,o,c,"mapping" $CRESIS_FILE_NC
+nccopy $CRESIS_FILE_NC $CRESIS1985_FILE_NC
+
+
 python scripts/scalar_within_poly.py -s 0 -v thk ~/data/data_sets/GreenlandFlightlines/ice_thickness_zero.shp $CRESIS_FILE_NC
 python scripts/scalar_within_poly.py -s 750 -v thk ~/data/data_sets/GreenlandFlightlines/ice_thickness_fjord.shp $CRESIS_FILE_NC
 
@@ -119,34 +130,6 @@ ncap2 -O -s "where(thk==-9999.) thk=Band1;" $FL_FILE_NC $FL_FILE_NC
 
 ncrename -O -v Band1,thk $CRESIS_FILE_NC $CRESIS_FILE_NC
 
-# GIMP DEM
-GIMP=gimpdem_90m
-GIMP_FILE_NC=${PROJECT}_gimp_${GS}m.nc
-#wget -nc ftp://ftp-bprc.mps.ohio-state.edu/downloads/gdg/gimpdem/$GIMP.tif.zip
-#unzip -o $GIMP.tif.zip
-gdal_translate -projwin  $X_MIN $Y_MAX $X_MAX $Y_MIN $GIMP.tif ${PROJECT}_${GIMP}.tif
-#gdaldem hillshade -s 0.5 ${PROJECT}_${GIMP}.tif ${PROJECT}_${GIMP}_hillshade.tif
-gdalwarp $WARPOPTIONS -of netCDF $GIMP.tif tmp_$GIMP_FILE_NC
-ncrename -v Band1,usurf tmp_$GIMP_FILE_NC
-nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$GIMP_FILE_NC
-if [ [$NN == 1] ] ; then
-  REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC tmp_$GIMP_FILE_NC $GIMP_FILE_NC
-else
-  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC tmp_$GIMP_FILE_NC $GIMP_FILE_NC
-fi
-ncks -A -v x,y,mapping $FL_FILE_NC $GIMP_FILE_NC
-ncatted -a grid_mapping,usurf,o,c,"mapping" -a units,usurf,o,c,"m" -a long_name,usurf,o,c,"ice upper surface elevation" -a standard_name,usurf,o,c,"surface_altitude" $GIMP_FILE_NC
-
-USURF2008_FILE_NC=${PROJECT}_usurf_${YEAR}_${GS}m.nc
-nccopy ${GIMP_FILE_NC} ${USURF2008_FILE_NC}
-ELEV_DIFF=${PROJECT}_gimpminuscresis_${YEAR}_${GS}m.nc
-cdo sub -selvar,usurf ${GIMP_FILE_NC} -selvar,usurf $CRESIS_FILE_NC $ELEV_DIFF
-ncks -A -v x,y,mapping $FL_FILE_NC $ELEV_DIFF
-ncatted -a grid_mapping,usurf,o,c,"mapping" $ELEV_DIFF
-nc2cdo.py $ELEV_DIFF
-ncrename -v usurf,thk $ELEV_DIFF
-cdo add -selvar,thk $FL_FILE_NC -selvar,thk $ELEV_DIFF tmp_thk_$FL_FILE_NC
-ncks -A -v thk tmp_thk_$FL_FILE_NC $FL_FILE_NC
 
 IN_DEM=DEM_5.5_july_24_85.nc
 USURF1985_FILE_NC=${PROJECT}_usurf_1985_${GS}m.nc
@@ -160,12 +143,25 @@ ncks -A -v x,y,mapping $FL_FILE_NC tmp_$USURF1985_FILE_NC
 ncatted -a grid_mapping,usurf,o,c,"mapping" -a units,usurf,o,c,"m"  -a long_name,usurf,o,c,"ice upper surface elevation" -a standard_name,usurf,o,c,"surface_altitude" tmp_$USURF1985_FILE_NC
 fill_missing.py -v usurf -e 1.5 -f tmp_$USURF1985_FILE_NC -o $USURF1985_FILE_NC
 
+USURF2008_FILE_NC=${PROJECT}_usurf_${YEAR}_${GS}m.nc
+ncks -O $CRESIS_FILE_NC $USURF2008_FILE_NC
+nc2cdo.py $USURF2008_FILE_NC
+
 USURFDIFF_FILE_NC=${PROJECT}_usurf_2008-1985_${GS}m.nc
 cdo sub -selvar,usurf $USURF2008_FILE_NC -selvar,usurf $USURF1985_FILE_NC $USURFDIFF_FILE_NC
 ncks -A -v x,y,mapping $FL_FILE_NC $USURFDIFF_FILE_NC
 ncatted -a grid_mapping,usurf,o,c,"mapping" $USURFDIFF_FILE_NC
 nc2cdo.py $USURFDIFF_FILE_NC
+
+cdo sub -selvar,usurf $CRESIS1985_FILE_NC -selvar,usurf $USURFDIFF_FILE_NC tmp_$CRESIS1985_FILE_NC
+
 ncrename -v usurf,thk $USURFDIFF_FILE_NC
+cdo sub -selvar,thk $CRESIS_FILE_NC -selvar,thk $USURFDIFF_FILE_NC tmp2_$CRESIS1985_FILE_NC
+ncks -A -v thk tmp2_$CRESIS1985_FILE_NC $CRESIS1985_FILE_NC
+ncks -A -v usurf tmp_$CRESIS1985_FILE_NC $CRESIS1985_FILE_NC
+ncks -A -v x,y,mapping $FL_FILE_NC $CRESIS1985_FILE_NC
+nc2cdo.py $CRESIS1985_FILE_NC
+
 cdo sub -selvar,thk $FL_FILE_NC $USURFDIFF_FILE_NC tmp_${FL1985_FILE_NC}
 ncks -A -v x,y,mapping $FL_FILE_NC tmp_${FL1985_FILE_NC}
 ncatted -a grid_mapping,thk,o,c,"mapping" tmp_${FL1985_FILE_NC}
@@ -173,4 +169,4 @@ nccopy $FL_FILE_NC $FL1985_FILE_NC
 ncks -A -v thk tmp_${FL1985_FILE_NC} $FL1985_FILE_NC
 ncatted -a _FillValue,thk,o,f,-2e9 $FL1985_FILE_NC
 
-source prepare_additional.sh
+#source prepare_additional.sh
