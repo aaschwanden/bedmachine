@@ -86,7 +86,7 @@ else
 fi
 ncrename -v Band1,dhdt $SPOT_FILE_NC
 ncks -A -v x,y,mapping $FL_FILE_NC $SPOT_FILE_NC
-
+ncatted -a units,dhdt,o,c,"m year-1" $SPOT_FILE_NC
 
 # CReSIS data set
 CRESIS=${PROJECTC}_${CRESIS_YEARS}
@@ -118,10 +118,6 @@ ncatted -a _FillValue,,d,, $CRESIS_FILE_NC
 ncks -A -v x,y,mapping $FL_FILE_NC $CRESIS_FILE_NC
 ncatted -a grid_mapping,Band1,o,c,"mapping" $CRESIS_FILE_NC
 nccopy $CRESIS_FILE_NC $CRESIS1985_FILE_NC
-
-
-python scripts/scalar_within_poly.py -s 0 -v thk ~/data/data_sets/GreenlandFlightlines/ice_thickness_zero.shp $CRESIS_FILE_NC
-python scripts/scalar_within_poly.py -s 750 -v thk ~/data/data_sets/GreenlandFlightlines/ice_thickness_fjord.shp $CRESIS_FILE_NC
 
 
 ncks -A -v Band1 $CRESIS_FILE_NC $FL_FILE_NC
@@ -168,5 +164,8 @@ ncatted -a grid_mapping,thk,o,c,"mapping" tmp_${FL1985_FILE_NC}
 nccopy $FL_FILE_NC $FL1985_FILE_NC
 ncks -A -v thk tmp_${FL1985_FILE_NC} $FL1985_FILE_NC
 ncatted -a _FillValue,thk,o,f,-2e9 $FL1985_FILE_NC
+
+python scripts/scalar_within_poly.py -s 0 -v thk ~/data/data_sets/GreenlandFlightlines/ice_thickness_zero.shp $CRESIS_FILE_NC
+python scripts/scalar_within_poly.py -s 750 -v thk ~/data/data_sets/GreenlandFlightlines/ice_thickness_fjord.shp $CRESIS_FILE_NC
 
 #source prepare_additional.sh

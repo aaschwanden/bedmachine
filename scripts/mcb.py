@@ -180,6 +180,9 @@ y = nc.variables[ydim][:]
 proj4_str = nc.projection
 input_dimensions = nc.variables["thk"].dimensions
 rho = np.squeeze(permute(nc.variables["rho"], output_order=output_order))
+# rho may be a masked array, which dolfin cannot handle
+# here we remove the mask
+rho = np.array(rho)
 Hfl = np.squeeze(permute(nc.variables["thk"], output_order=output_order))
 M = len(x)
 xmin = x[0]
