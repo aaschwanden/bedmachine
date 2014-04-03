@@ -18,9 +18,9 @@ do
 	    for scale in 0.8 0.9 1.0
 	    do
 		nc2cdo.py ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_vscale_${scale}_${exp}.nc
-		cdo ifnotthen ${project}_mask_${GS}m.nc ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_vscale_${scale}_${exp}.nc ${project}/tmp_${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_vscale_${scale}_${exp}.nc
+		cdo ifnotthen ${project}_mask_2008_${GS}m.nc ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_vscale_${scale}_${exp}.nc ${project}/tmp_${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_vscale_${scale}_${exp}.nc
 		mv ${project}/tmp_${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_vscale_${scale}_${exp}.nc ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_vscale_${scale}_${exp}.nc
-		ncks -A -v x,y,mapping ${project}_mask_${GS}m.nc ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_vscale_${scale}_${exp}.nc
+		ncks -A -v x,y,mapping ${project}_mask_2008_${GS}m.nc ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_vscale_${scale}_${exp}.nc
 		ncatted -a grid_mapping,thk,o,c,"mapping" ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_vscale_${scale}_${exp}.nc
 		extract-profile.py ~/data/data_sets/Jakobshavn1985/jakobshavn_xprofile_str_point.shp ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_vscale_${scale}_${exp}.nc ${project}/profile_str_${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_vscale_${scale}_${exp}.nc
 		extract-profile.py ~/data/data_sets/Jakobshavn1985/jakobshavn_xprofile_s8_point.shp ${project}/${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_vscale_${scale}_${exp}.nc ${project}/profile_s8_${project}_${GS}m_alpha_${alpha}_gamma_${gamma}_vscale_${scale}_${exp}.nc
@@ -43,7 +43,7 @@ do
         extract-profile.py ~/data/data_sets/Jakobshavn1985/jakobshavn_xprofile_str_point.shp ${project}_${dataset}_${GS}m.nc profile_str_${project}_${dataset}_${GS}m.nc
         extract-profile.py ~/data/data_sets/Jakobshavn1985/jakobshavn_xprofile_s8_point.shp ${project}_${dataset}_${GS}m.nc profile_s8_${project}_${dataset}_${GS}m.nc
         extract-profile.py  ~/data/data_sets/GreenlandFlightlines/jakobshavn_xprofile_20090406_points.shp ${project}_${dataset}_${GS}m.nc profile_ctr_${project}_${dataset}_${GS}m.nc
-        extract-profile.py  ~/data/data_sets/GreenlandFlightlines/jakobshavn_xprofile_20090402-02-08.shp ${project}_${dataset}_${GS}m.nc profile_ctr_${project}_${dataset}_${GS}m.nc
+        extract-profile.py  ~/data/data_sets/GreenlandFlightlines/jakobshavn_xprofile_20090402-02-08.shp ${project}_${dataset}_${GS}m.nc profile_ptr_${project}_${dataset}_${GS}m.nc
     done
 done
 
@@ -153,9 +153,9 @@ done
 
 im-plot.py -p twocol --colorbar_label -v dhdt  --bounds -100 100 --colormap RdBu_r --singlerow -o dhdt.pdf jakobshavn_dhdt_250m.nc
 
-im-plot.py -p twocol --colorbar_label -v topg  --colormap /Users/andy/base/pypismtools/colormaps/wiki-2.0.cpt --singlecolumn -o dhdt_comparison_topg.pdf jakobshavn/jakobshavn_250m_alpha_0.0_gamma_0.5_vscale_0.9_nodhdt_bmelt.nc jakobshavn/jakobshavn_250m_alpha_0.0_gamma_0.5_vscale_0.9_dhdt_bmelt.nc
+im-plot.py -p twocol --inner_title 'no dhdt,with dhdt' --colorbar_label -v topg  --colormap /Users/andy/base/pypismtools/colormaps/wiki-2.0.cpt --singlecolumn -o dhdt_comparison_topg.pdf jakobshavn/jakobshavn_250m_alpha_0.0_gamma_0.5_vscale_0.9_nodhdt_bmelt.nc jakobshavn/jakobshavn_250m_alpha_0.0_gamma_0.5_vscale_0.9_dhdt_bmelt.nc
 
-im-plot.py -p twocol --colorbar_label -v divHU  --bounds -500 500 --colormap RdBu_r --singlecolumn -o dhdt_comparison_divHU.pdf jakobshavn/jakobshavn_250m_alpha_0.0_gamma_0.5_vscale_0.9_nodhdt_bmelt.nc jakobshavn/jakobshavn_250m_alpha_0.0_gamma_0.5_vscale_0.9_dhdt_bmelt.nc
+im-plot.py -p twocol --inner_title 'no dhdt,with dhdt' --colorbar_label -v divHU  --bounds -500 500 --colormap RdBu_r --singlecolumn -o dhdt_comparison_divHU.pdf jakobshavn/jakobshavn_250m_alpha_0.0_gamma_0.5_vscale_0.9_nodhdt_bmelt.nc jakobshavn/jakobshavn_250m_alpha_0.0_gamma_0.5_vscale_0.9_dhdt_bmelt.nc
 
 
 
@@ -170,10 +170,16 @@ exit
 
 
 
+cdo ifnotthen ${project}_mask_1985_${GS}m.nc jakobshavn_surf_vels_1985_250m.nc jakobshavn_surf_vels_1985_250m_masked.nc
+ncks -A -v x,y,mapping jakobshavn_surf_vels_1985_250m.nc jakobshavn_surf_vels_1985_250m_masked.nc
+ncatted -a grid_mapping,magnitude,o,c,"mapping" jakobshavn_surf_vels_1985_250m_masked.nc
 
 
+cdo ifnotthen ${project}_mask_2008_${GS}m.nc jakobshavn_surf_vels_2008_2009_250m.nc jakobshavn_surf_vels_2008_2009_250m_masked.nc
+ncks -A -v x,y,mapping jakobshavn_surf_vels_2008_2009_250m.nc jakobshavn_surf_vels_2008_2009_250m_masked.nc
+ncatted -a grid_mapping,magnitude,o,c,"mapping" jakobshavn_surf_vels_2008_2009_250m_masked.nc
 
-im-plot.py -p twocol --colorbar_label -v magnitude --inner_titles '1985,2008' --singlerow --colormap /Users/andy/base/pypismtools/colormaps/Full_saturation_spectrum_CCW_orange.cpt -o speed_1985_2008.pdf jakobshavn_surf_vels_1985_250m.nc jakobshavn_surf_vels_2008_2009_250m.nc
+im-plot.py -p twocol --colorbar_label -v magnitude --bounds 1 10000 --inner_titles '1985,2008' --singlerow --colormap /Users/andy/base/pypismtools/colormaps/Full_saturation_spectrum_CCW_orange.cpt -o speed_1985_2008.pdf jakobshavn_surf_vels_1985_250m_masked.nc jakobshavn_surf_vels_2008_2009_250m_masked.nc
 
 im-plot.py --bounds -1000 2100 -p twocol --colorbar_label -v usurf --colormap ~/base/pypismtools/colormaps/wiki-2.0.cpt --inner_titles '1985,2008' --singlerow -o usurf_1985_2008.pdf jakobshavn_usurf_1985_250m.nc jakobshavn_usurf_2008_250m.nc
 

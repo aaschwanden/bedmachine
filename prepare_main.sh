@@ -55,7 +55,7 @@ WARPOPTIONS="-overwrite -multi -r bilinear -te $X_MIN $Y_MIN $X_MAX $Y_MAX -tr $
 
 SPOT_FILE_IN=jakobshavn_spot_dem_diff_clean.nc
 SPOT_FILE_NC=${PROJECT}_dhdt_${GS}m.nc
-if [ [$NN == 1] ] ; then
+if [[ $NN == 1 ]] ; then
   REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC $SPOT_FILE_IN $SPOT_FILE_NC
 else
   REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC $SPOT_FILE_IN $SPOT_FILE_NC
@@ -65,7 +65,7 @@ ncks -A -v x,y,mapping $FL_FILE_NC $SPOT_FILE_NC
 
 #BMELT_FILE_IN=g1km_0_CLRUN_bmelt.nc
 #BMELT_FILE_NC=${PROJECT}_bmelt_${GS}m.nc
-#if [ [$NN == 1] ] ; then
+#if [[ $NN == 1 ]] ; then
 #  REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC $BMELT_FILE_IN $BMELT_FILE_NC
 #else
 #  REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC $BMELT_FILE_IN $BMELT_FILE_NC
@@ -89,7 +89,7 @@ ncks -A usurf_$CRESIS_FILE_NC tmp_$CRESIS_FILE_NC
 ncks -A topg_$CRESIS_FILE_NC tmp_$CRESIS_FILE_NC
 ncatted -a units,Band1,o,c,"m" -a units,topg,o,c,"m" -a units,usurf,o,c,"m" tmp_$CRESIS_FILE_NC
 nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$CRESIS_FILE_NC
-if [ [$NN == 1] ] ; then
+if [[ $NN == 1 ]] ; then
   REMAP_EXTRAPOLATE=on cdo remapcon,$FL_FILE_NC tmp_$CRESIS_FILE_NC tmp2_$CRESIS_FILE_NC
 else
   REMAP_EXTRAPOLATE=on cdo -P $NN remapcon,$FL_FILE_NC tmp_$CRESIS_FILE_NC tmp2_$CRESIS_FILE_NC
@@ -118,7 +118,7 @@ gdaldem hillshade -s 0.5 ${PROJECT}_${GIMP}.tif ${PROJECT}_${GIMP}_hillshade.tif
 gdalwarp $WARPOPTIONS -of netCDF $GIMP.tif tmp_$GIMP_FILE_NC
 ncrename -v Band1,usurf tmp_$GIMP_FILE_NC
 nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$GIMP_FILE_NC
-if [ [$NN == 1] ] ; then
+if [[ $NN == 1 ]] ; then
   REMAP_EXTRAPOLATE=on cdo remapcon,$FL_FILE_NC tmp_$GIMP_FILE_NC $GIMP_FILE_NC
 else
   REMAP_EXTRAPOLATE=on cdo -P $NN remapcon,$FL_FILE_NC tmp_$GIMP_FILE_NC $GIMP_FILE_NC
@@ -145,7 +145,7 @@ UMT_FILE_NC=${PROJECT}_umt_${GS}m.nc
 wget -nc http://websrv.cs.umt.edu/isis/images/a/ab/$UMT_FILE
 nc2cdo.py $UMT_FILE
 ncwa -O -a t $UMT_FILE tmp_$UMT_FILE
-if [ [$NN == 1] ] ; then
+if [[ $NN == 1 ]] ; then
   REMAP_EXTRAPOLATE=on cdo remapcon,$FL_FILE_NC -selvar,thk,topg tmp_$UMT_FILE $UMT_FILE_NC
 else
   REMAP_EXTRAPOLATE=on cdo -P $NN remapcon,$FL_FILE_NC tmp_$UMT_FILE $UMT_FILE_NC
@@ -166,7 +166,7 @@ nc2cdo.py $SR_FILE
 
 # Regrid SeaRISE onto local grid
 cdo selvar,smb,topg,thk $SR_FILE tmp_$SR_FILE
-if [ [$NN == 1] ] ; then
+if [[ $NN == 1 ]] ; then
   REMAP_EXTRAPOLATE=on cdo remapcon,$FL_FILE_NC tmp_$SR_FILE $SR_FILE_NC
 else
   REMAP_EXTRAPOLATE=on cdo -P $NN remapcon,$FL_FILE_NC tmp_$SR_FILE $SR_FILE_NC

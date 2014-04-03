@@ -4,7 +4,7 @@ set -x -e
 YEAR=1985
 VELIN_FILE=surf_vels_${YEAR}_utm.nc
 VELOUT_FILE=${PROJECT}_surf_vels_${YEAR}_${GS}m.nc
-if [ [$NN == 1] ] ; then
+if [[ $NN == 1 ]] ; then
     REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC $VELIN_FILE $VELOUT_FILE
 else
     REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC $VELIN_FILE $VELOUT_FILE

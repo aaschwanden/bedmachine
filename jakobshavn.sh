@@ -63,13 +63,18 @@ ncatted -a _FillValue,,d,, $FL_FILE_NC
 ncks -A -v thk -x tmp_$FL_FILE_NC $FL_FILE_NC
 nc2cdo.py $FL_FILE_NC
 
-MASK_FILE_NC=${PROJECT}_mask_${GS}m.nc
+MASK_FILE_NC=${PROJECT}_mask_2008_${GS}m.nc
 ncap2 -O -s "mask=thk*0;" $FL_FILE_NC $MASK_FILE_NC
 python scripts/scalar_within_poly.py -s 1 -v mask ~/data/data_sets/GreenlandFlightlines/ice_thickness_zero.shp $MASK_FILE_NC
 python scripts/scalar_within_poly.py -s 1 -v mask ~/data/data_sets/GreenlandFlightlines/ice_thickness_fjord.shp $MASK_FILE_NC
 ncks -O -v thk,rho -x $MASK_FILE_NC $MASK_FILE_NC
 
- 
+MASK1985_FILE_NC=${PROJECT}_mask_1985_${GS}m.nc
+ncap2 -O -s "mask=thk*0;" $FL_FILE_NC $MASK1985_FILE_NC
+python scripts/scalar_within_poly.py -s 1 -v mask ~/data/data_sets/GreenlandFlightlines/ice_thickness_grounded.shp $MASK1985_FILE_NC
+ncks -O -v thk,rho -x $MASK1985_FILE_NC $MASK1985_FILE_NC
+
+exit
 #source prepare_velocities.sh
 #source prepare_velocities_1985.sh
 #source prepare_bmelt.sh
@@ -79,7 +84,7 @@ WARPOPTIONS="-overwrite -multi -r bilinear -te $X_MIN $Y_MIN $X_MAX $Y_MAX -tr $
 
 SPOT_FILE_IN=jakobshavn_spot_dem_diff_clean.nc
 SPOT_FILE_NC=${PROJECT}_dhdt_${GS}m.nc
-if [ [$NN == 1] ] ; then
+if [[ $NN == 1 ]] ; then
   REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC $SPOT_FILE_IN $SPOT_FILE_NC
 else
   REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC $SPOT_FILE_IN $SPOT_FILE_NC
@@ -105,7 +110,7 @@ ncks -A usurf_$CRESIS_FILE_NC tmp_$CRESIS_FILE_NC
 ncks -A topg_$CRESIS_FILE_NC tmp_$CRESIS_FILE_NC
 ncatted -a units,Band1,o,c,"m" -a units,topg,o,c,"m" -a units,usurf,o,c,"m" tmp_$CRESIS_FILE_NC
 nc2cdo.py --srs '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m' tmp_$CRESIS_FILE_NC
-if [ [$NN == 1] ] ; then
+if [[ $NN == 1 ]] ; then
   REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC tmp_$CRESIS_FILE_NC tmp2_$CRESIS_FILE_NC
 else
   REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC tmp_$CRESIS_FILE_NC tmp2_$CRESIS_FILE_NC
@@ -129,7 +134,7 @@ ncrename -O -v Band1,thk $CRESIS_FILE_NC $CRESIS_FILE_NC
 
 IN_DEM=DEM_5.5_july_24_85.nc
 USURF1985_FILE_NC=${PROJECT}_usurf_1985_${GS}m.nc
-if [ [$NN == 1] ] ; then
+if [[ $NN == 1 ]] ; then
   REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC $IN_DEM tmp_$USURF1985_FILE_NC
 else
   REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC $IN_DEM tmp_$USURF1985_FILE_NC

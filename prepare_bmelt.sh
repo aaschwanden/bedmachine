@@ -3,7 +3,7 @@ echo "Preparing basal melt"
 FILE=g1km_0_CLRUN-bmelt.nc
 nc2cdo.py $FILE
 FILE_NC=${PROJECT}_bmelt_${GS}m.nc
-if [ [$NN == 1] ] ; then
+if [[ $NN == 1 ]] ; then
   REMAP_EXTRAPOLATE=on cdo remapbil,$FL_FILE_NC -selvar,thk,topg $FILE $FILE_NC
 else
   REMAP_EXTRAPOLATE=on cdo -P $NN remapbil,$FL_FILE_NC $FILE $FILE_NC
